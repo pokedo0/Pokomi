@@ -27,6 +27,7 @@ import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchItemResult
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -39,10 +40,13 @@ fun FollowingScreen(
     getManga: @Composable (Manga) -> State<Manga>,
     onClickManga: (Manga) -> Unit,
     onLongClickManga: (Manga) -> Unit,
+    onPullRefresh: () -> Unit,
     onRefresh: (Long) -> Unit,
     onOpenSearch: (String) -> Unit,
     onVisible: (Long) -> Unit,
 ) {
+    val isRefreshing = results.values.any { it is SearchItemResult.Loading }
+
     Scaffold(
         topBar = { scrollBehavior ->
             AppBar(
@@ -51,25 +55,32 @@ fun FollowingScreen(
             )
         },
     ) { paddingValues ->
-        if (subscriptions.isEmpty()) {
-            EmptyScreen(
-                stringRes = KMR.strings.following_empty,
-                modifier = Modifier.padding(paddingValues),
-            )
-        } else {
-            LazyColumn(contentPadding = paddingValues) {
-                items(subscriptions, key = { it.id }) { subscription ->
-                    FollowingAuthorSection(
-                        subscription = subscription,
-                        result = results[subscription.id],
-                        getManga = getManga,
-                        onClickManga = onClickManga,
-                        onLongClickManga = onLongClickManga,
-                        onRefresh = onRefresh,
-                        onOpenSearch = onOpenSearch,
-                        onVisible = onVisible,
-                        modifier = Modifier.animateItem(),
-                    )
+        PullRefresh(
+            refreshing = isRefreshing,
+            enabled = subscriptions.isNotEmpty(),
+            onRefresh = onPullRefresh,
+            indicatorPadding = paddingValues,
+        ) {
+            if (subscriptions.isEmpty()) {
+                EmptyScreen(
+                    stringRes = KMR.strings.following_empty,
+                    modifier = Modifier.padding(paddingValues),
+                )
+            } else {
+                LazyColumn(contentPadding = paddingValues) {
+                    items(subscriptions, key = { it.id }) { subscription ->
+                        FollowingAuthorSection(
+                            subscription = subscription,
+                            result = results[subscription.id],
+                            getManga = getManga,
+                            onClickManga = onClickManga,
+                            onLongClickManga = onLongClickManga,
+                            onRefresh = onRefresh,
+                            onOpenSearch = onOpenSearch,
+                            onVisible = onVisible,
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
                 }
             }
         }

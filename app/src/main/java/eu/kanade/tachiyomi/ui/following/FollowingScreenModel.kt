@@ -80,14 +80,28 @@ class FollowingScreenModel(
     }
 
     fun refresh(subscriptionId: Long) {
+        refresh(listOf(subscriptionId))
+    }
+
+    fun refreshLoaded() {
+        val loadedIds = state.value.results.keys
+        val refreshIds = loadedIds.ifEmpty {
+            state.value.subscriptions.take(INITIAL_LOAD_COUNT).map { it.id }
+        }
+        refresh(refreshIds)
+    }
+
+    private fun refresh(subscriptionIds: Collection<Long>) {
         mutableState.update {
             it.copy(
                 results = it.results.mutate { results ->
-                    results[subscriptionId] = SearchItemResult.Loading
+                    subscriptionIds.forEach { subscriptionId ->
+                        results[subscriptionId] = SearchItemResult.Loading
+                    }
                 },
             )
         }
-        load(listOf(subscriptionId), force = true)
+        load(subscriptionIds.toList(), force = true)
     }
 
     private fun load(subscriptionIds: List<Long>, force: Boolean = false) {

@@ -141,7 +141,13 @@ internal fun GlobalSearchContent(
     LazyColumn(
         contentPadding = contentPadding,
     ) {
-        items.forEach { (source, result) ->
+        val sortedItems = if (subscribedSourceId == null) {
+            items.toList()
+        } else {
+            items.toList().sortedBy { (source, _) -> source.id != subscribedSourceId }
+        }
+
+        sortedItems.forEach { (source, result) ->
             item(key = "global-search-${source.id}") {
                 // KMK -->
                 val domainSource = DomainSource(

@@ -42,6 +42,7 @@ data object FollowingTab : Tab {
             getManga = screenModel::getManga,
             onClickManga = { manga -> navigator.push(MangaScreen(manga.id, true)) },
             onLongClickManga = { manga -> navigator.push(MangaScreen(manga.id, true)) },
+            onPullRefresh = screenModel::refreshLoaded,
             onRefresh = screenModel::refresh,
             onOpenSearch = { query -> navigator.push(GlobalSearchScreen(query)) },
             onVisible = screenModel::loadVisible,

@@ -1,35 +1,29 @@
 package eu.kanade.presentation.following
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import eu.kanade.presentation.browse.components.GlobalSearchCardRow
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.library.components.CollapsibleAuthorHeader
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchItemResult
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.kmk.KMR
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
-import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 
@@ -41,11 +35,11 @@ fun FollowingScreen(
     onClickManga: (Manga) -> Unit,
     onLongClickManga: (Manga) -> Unit,
     onPullRefresh: () -> Unit,
-    onRefresh: (Long) -> Unit,
-    onOpenSearch: (String) -> Unit,
     onVisible: (Long) -> Unit,
 ) {
     val isRefreshing = results.values.any { it is SearchItemResult.Loading }
+    var collapsedIds by rememberSaveable { mutableStateOf(emptyList<Long>()) }
+    val collapsedIdSet = remember(collapsedIds) { collapsedIds.toSet() }
 
     Scaffold(
         topBar = { scrollBehavior ->
@@ -69,14 +63,21 @@ fun FollowingScreen(
             } else {
                 LazyColumn(contentPadding = paddingValues) {
                     items(subscriptions, key = { it.id }) { subscription ->
+                        val expanded = subscription.id !in collapsedIdSet
                         FollowingAuthorSection(
                             subscription = subscription,
                             result = results[subscription.id],
+                            expanded = expanded,
                             getManga = getManga,
                             onClickManga = onClickManga,
                             onLongClickManga = onLongClickManga,
-                            onRefresh = onRefresh,
-                            onOpenSearch = onOpenSearch,
+                            onToggleExpanded = {
+                                collapsedIds = if (expanded) {
+                                    collapsedIds + subscription.id
+                                } else {
+                                    collapsedIds - subscription.id
+                                }
+                            },
                             onVisible = onVisible,
                             modifier = Modifier.animateItem(),
                         )
@@ -91,11 +92,11 @@ fun FollowingScreen(
 private fun FollowingAuthorSection(
     subscription: AuthorSubscription,
     result: SearchItemResult?,
+    expanded: Boolean,
     getManga: @Composable (Manga) -> State<Manga>,
     onClickManga: (Manga) -> Unit,
     onLongClickManga: (Manga) -> Unit,
-    onRefresh: (Long) -> Unit,
-    onOpenSearch: (String) -> Unit,
+    onToggleExpanded: () -> Unit,
     onVisible: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -104,36 +105,13 @@ private fun FollowingAuthorSection(
     }
 
     Column(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = MaterialTheme.padding.medium,
-                    end = MaterialTheme.padding.extraSmall,
-                    top = MaterialTheme.padding.medium,
-                ),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = subscription.name,
-                style = MaterialTheme.typography.titleLarge,
-            )
-            Row {
-                IconButton(onClick = { onRefresh(subscription.id) }) {
-                    Icon(
-                        imageVector = Icons.Outlined.Refresh,
-                        contentDescription = stringResource(KMR.strings.following_refresh_author),
-                    )
-                }
-                IconButton(onClick = { onOpenSearch(subscription.query) }) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
-                        contentDescription = stringResource(KMR.strings.following_open_author_search),
-                    )
-                }
-            }
-        }
+        CollapsibleAuthorHeader(
+            title = subscription.name,
+            expanded = expanded,
+            onClick = onToggleExpanded,
+        )
+
+        if (!expanded) return@Column
 
         when (result) {
             null,

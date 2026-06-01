@@ -11,6 +11,9 @@ object LibraryGroup {
     const val BY_STATUS = 2
     const val BY_TRACK_STATUS = 3
     const val UNGROUPED = 4
+    // KMK -->
+    const val BY_AUTHOR = 5
+    // KMK <--
 
     fun groupTypeStringRes(type: Int): StringResource {
         return when (type) {
@@ -18,6 +21,9 @@ object LibraryGroup {
             BY_SOURCE -> MR.strings.label_sources
             BY_TRACK_STATUS -> SYMR.strings.tracking_status
             UNGROUPED -> SYMR.strings.ungrouped
+            // KMK -->
+            BY_AUTHOR -> MR.strings.author
+            // KMK <--
             else -> MR.strings.categories
         }
     }

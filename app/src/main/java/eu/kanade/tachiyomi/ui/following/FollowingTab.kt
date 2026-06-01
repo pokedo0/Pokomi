@@ -12,7 +12,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.following.FollowingScreen
 import eu.kanade.presentation.util.Tab
-import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import tachiyomi.i18n.kmk.KMR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -43,8 +42,6 @@ data object FollowingTab : Tab {
             onClickManga = { manga -> navigator.push(MangaScreen(manga.id, true)) },
             onLongClickManga = { manga -> navigator.push(MangaScreen(manga.id, true)) },
             onPullRefresh = screenModel::refreshLoaded,
-            onRefresh = screenModel::refresh,
-            onOpenSearch = { query -> navigator.push(GlobalSearchScreen(query)) },
             onVisible = screenModel::loadVisible,
         )
     }

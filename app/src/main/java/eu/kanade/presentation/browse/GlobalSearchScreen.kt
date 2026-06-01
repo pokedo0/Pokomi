@@ -2,6 +2,9 @@ package eu.kanade.presentation.browse
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
@@ -22,7 +25,9 @@ import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SourceFilter
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.collections.immutable.ImmutableMap
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.i18n.kmk.KMR
 import tachiyomi.presentation.core.components.material.Scaffold
+import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.domain.source.model.Source as DomainSource
 
 @Composable
@@ -37,6 +42,10 @@ fun GlobalSearchScreen(
     onClickSource: (CatalogueSource) -> Unit,
     onClickItem: (Manga) -> Unit,
     onLongClickItem: (Manga) -> Unit,
+    // KMK -->
+    subscribedSourceId: Long?,
+    onClickSubscribeSource: (CatalogueSource) -> Unit,
+    // KMK <--
     // KMK -->
     bulkFavoriteScreenModel: BulkFavoriteScreenModel,
     hasPinnedSources: Boolean,
@@ -100,6 +109,11 @@ fun GlobalSearchScreen(
             onClickItem = onClickItem,
             onLongClickItem = onLongClickItem,
             // KMK -->
+            showSubscriptionAction = !state.searchQuery.isNullOrBlank(),
+            subscribedSourceId = subscribedSourceId,
+            onClickSubscribeSource = onClickSubscribeSource,
+            // KMK <--
+            // KMK -->
             selection = bulkFavoriteState.selection,
             // KMK <--
         )
@@ -115,6 +129,11 @@ internal fun GlobalSearchContent(
     onClickItem: (Manga) -> Unit,
     onLongClickItem: (Manga) -> Unit,
     fromSourceId: Long? = null,
+    // KMK -->
+    showSubscriptionAction: Boolean = false,
+    subscribedSourceId: Long? = null,
+    onClickSubscribeSource: ((CatalogueSource) -> Unit)? = null,
+    // KMK <--
     // KMK -->
     selection: List<Manga>,
     // KMK <--
@@ -133,6 +152,25 @@ internal fun GlobalSearchContent(
                     isStub = false,
                 )
                 // KMK <--
+                // KMK -->
+                val isSubscribedSource = subscribedSourceId == source.id
+                val subscriptionIcon = when {
+                    !showSubscriptionAction || onClickSubscribeSource == null -> null
+                    isSubscribedSource -> Icons.Filled.Favorite
+                    else -> Icons.Outlined.FavoriteBorder
+                }
+                val subscriptionContentDescription = if (showSubscriptionAction) {
+                    stringResource(
+                        when {
+                            isSubscribedSource -> KMR.strings.following_unsubscribe_author
+                            subscribedSourceId == null -> KMR.strings.following_subscribe_author
+                            else -> KMR.strings.following_switch_source
+                        },
+                    )
+                } else {
+                    null
+                }
+                // KMK <--
 
                 GlobalSearchResultItem(
                     title = (
@@ -150,6 +188,11 @@ internal fun GlobalSearchContent(
                     subtitle = LocaleHelper.getLocalizedDisplayName(source.lang),
                     onClick = { onClickSource(source) },
                     modifier = Modifier.animateItem(),
+                    // KMK -->
+                    subscriptionIcon = subscriptionIcon,
+                    subscriptionContentDescription = subscriptionContentDescription,
+                    onClickSubscription = onClickSubscribeSource?.let { { it(source) } },
+                    // KMK <--
                 ) {
                     when (result) {
                         SearchItemResult.Loading -> {

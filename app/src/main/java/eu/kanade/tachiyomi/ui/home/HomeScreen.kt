@@ -43,6 +43,7 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
+import eu.kanade.tachiyomi.ui.following.FollowingTab
 import eu.kanade.tachiyomi.ui.history.HistoryTab
 import eu.kanade.tachiyomi.ui.library.LibraryTab
 import eu.kanade.tachiyomi.ui.libraryUpdateError.LibraryUpdateErrorScreen
@@ -77,6 +78,7 @@ object HomeScreen : Screen() {
 
     private val TABS = listOf(
         LibraryTab,
+        FollowingTab,
         UpdatesTab,
         HistoryTab,
         BrowseTab,

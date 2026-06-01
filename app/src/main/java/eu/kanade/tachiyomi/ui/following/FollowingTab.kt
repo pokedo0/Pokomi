@@ -1,0 +1,50 @@
+package eu.kanade.tachiyomi.ui.following
+
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import cafe.adriel.voyager.core.model.rememberScreenModel
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.currentOrThrow
+import cafe.adriel.voyager.navigator.tab.TabOptions
+import eu.kanade.presentation.following.FollowingScreen
+import eu.kanade.presentation.util.Tab
+import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
+import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import tachiyomi.i18n.kmk.KMR
+import tachiyomi.presentation.core.i18n.stringResource
+
+data object FollowingTab : Tab {
+    private fun readResolve(): Any = FollowingTab
+
+    override val options: TabOptions
+        @Composable
+        get() {
+            return TabOptions(
+                index = 1u,
+                title = stringResource(KMR.strings.following),
+                icon = rememberVectorPainter(Icons.Outlined.BookmarkBorder),
+            )
+        }
+
+    @Composable
+    override fun Content() {
+        val navigator = LocalNavigator.currentOrThrow
+        val screenModel = rememberScreenModel { FollowingScreenModel() }
+        val state by screenModel.state.collectAsState()
+
+        FollowingScreen(
+            subscriptions = state.subscriptions,
+            results = state.results,
+            getManga = screenModel::getManga,
+            onClickManga = { manga -> navigator.push(MangaScreen(manga.id, true)) },
+            onLongClickManga = { manga -> navigator.push(MangaScreen(manga.id, true)) },
+            onRefresh = screenModel::refresh,
+            onOpenSearch = { query -> navigator.push(GlobalSearchScreen(query)) },
+            onVisible = screenModel::loadVisible,
+        )
+    }
+}

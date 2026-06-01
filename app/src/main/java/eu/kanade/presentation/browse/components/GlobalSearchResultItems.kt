@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import tachiyomi.i18n.MR
@@ -39,6 +40,11 @@ fun GlobalSearchResultItem(
     // SY -->
     onLongClick: (() -> Unit)? = null,
     // SY <--
+    // KMK -->
+    subscriptionIcon: ImageVector? = null,
+    subscriptionContentDescription: String? = null,
+    onClickSubscription: (() -> Unit)? = null,
+    // KMK <--
     content: @Composable () -> Unit,
 ) {
     Column(modifier = modifier) {
@@ -70,8 +76,20 @@ fun GlobalSearchResultItem(
                     Text(text = subtitle)
                 }
             }
-            IconButton(onClick = onClick) {
-                Icon(imageVector = Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // KMK -->
+                if (subscriptionIcon != null && onClickSubscription != null) {
+                    IconButton(onClick = onClickSubscription) {
+                        Icon(
+                            imageVector = subscriptionIcon,
+                            contentDescription = subscriptionContentDescription,
+                        )
+                    }
+                }
+                // KMK <--
+                IconButton(onClick = onClick) {
+                    Icon(imageVector = Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null)
+                }
             }
         }
         content()

@@ -1,0 +1,78 @@
+CREATE TABLE author_subscription(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    source INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    query TEXT NOT NULL,
+    normalized_query TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    last_refresh_at INTEGER,
+    sort_order INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX author_subscription_normalized_query_index
+ON author_subscription(normalized_query);
+
+selectAll:
+SELECT *
+FROM author_subscription
+ORDER BY sort_order ASC, _id ASC;
+
+selectById:
+SELECT *
+FROM author_subscription
+WHERE _id = :id;
+
+selectByNormalizedQuery:
+SELECT *
+FROM author_subscription
+WHERE normalized_query = :normalizedQuery;
+
+insert:
+INSERT INTO author_subscription(
+    source,
+    name,
+    query,
+    normalized_query,
+    created_at,
+    updated_at,
+    last_refresh_at,
+    sort_order
+)
+VALUES (
+    :source,
+    :name,
+    :query,
+    :normalizedQuery,
+    :createdAt,
+    :updatedAt,
+    :lastRefreshAt,
+    (SELECT COALESCE(MAX(sort_order) + 1, 0) FROM author_subscription)
+);
+
+updateSource:
+UPDATE author_subscription
+SET
+    source = :source,
+    name = :name,
+    query = :query,
+    updated_at = :updatedAt
+WHERE normalized_query = :normalizedQuery;
+
+updateLastRefreshAt:
+UPDATE author_subscription
+SET
+    last_refresh_at = :lastRefreshAt,
+    updated_at = :updatedAt
+WHERE _id = :id;
+
+deleteById:
+DELETE FROM author_subscription
+WHERE _id = :id;
+
+deleteByNormalizedQuery:
+DELETE FROM author_subscription
+WHERE normalized_query = :normalizedQuery;
+
+selectLastInsertedRowId:
+SELECT last_insert_rowid();

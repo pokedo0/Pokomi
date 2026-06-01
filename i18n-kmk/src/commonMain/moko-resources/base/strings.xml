@@ -17,6 +17,16 @@
     <string name="action_open_folder">Open folder</string>
     <string name="action_clear_manga">Clear manga</string>
     <string name="action_update">Update</string>
+    <string name="following">Following</string>
+    <string name="following_empty">No followed authors</string>
+    <string name="following_refresh_author">Refresh author</string>
+    <string name="following_open_author_search">Open author search</string>
+    <string name="following_source_missing">Source not found</string>
+    <string name="following_subscribe_author">Subscribe author</string>
+    <string name="following_unsubscribe_author">Unsubscribe author</string>
+    <string name="following_switch_source">Switch subscribed source</string>
+    <string name="following_unsubscribe_confirmation">Remove this author subscription?</string>
+    <string name="following_unsubscribe_confirm">Remove</string>
         <!-- History section -->
     <string name="action_filter_unfinished_manga">Unfinished manga</string>
     <string name="action_filter_unfinished_chapter">Unfinished chapter</string>

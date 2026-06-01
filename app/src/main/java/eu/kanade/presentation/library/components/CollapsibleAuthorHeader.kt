@@ -2,6 +2,7 @@ package eu.kanade.presentation.library.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,11 +25,11 @@ fun CollapsibleAuthorHeader(
     expanded: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    actions: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
             .padding(
                 start = MaterialTheme.padding.small,
                 end = MaterialTheme.padding.small,
@@ -37,17 +38,27 @@ fun CollapsibleAuthorHeader(
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-        )
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 2.dp),
-        )
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .clickable(onClick = onClick),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(start = 2.dp)
+                    .weight(1f),
+            )
+        }
+        actions()
     }
 }

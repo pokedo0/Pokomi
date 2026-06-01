@@ -4,6 +4,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -35,6 +40,8 @@ fun FollowingScreen(
     onClickManga: (Manga) -> Unit,
     onLongClickManga: (Manga) -> Unit,
     onPullRefresh: () -> Unit,
+    onRefresh: (Long) -> Unit,
+    onOpenSearch: (String) -> Unit,
     onVisible: (Long) -> Unit,
 ) {
     val isRefreshing = results.values.any { it is SearchItemResult.Loading }
@@ -78,6 +85,8 @@ fun FollowingScreen(
                                     collapsedIds - subscription.id
                                 }
                             },
+                            onRefresh = onRefresh,
+                            onOpenSearch = onOpenSearch,
                             onVisible = onVisible,
                             modifier = Modifier.animateItem(),
                         )
@@ -97,6 +106,8 @@ private fun FollowingAuthorSection(
     onClickManga: (Manga) -> Unit,
     onLongClickManga: (Manga) -> Unit,
     onToggleExpanded: () -> Unit,
+    onRefresh: (Long) -> Unit,
+    onOpenSearch: (String) -> Unit,
     onVisible: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -109,7 +120,20 @@ private fun FollowingAuthorSection(
             title = subscription.name,
             expanded = expanded,
             onClick = onToggleExpanded,
-        )
+        ) {
+            IconButton(onClick = { onRefresh(subscription.id) }) {
+                Icon(
+                    imageVector = Icons.Outlined.Refresh,
+                    contentDescription = stringResource(KMR.strings.following_refresh_author),
+                )
+            }
+            IconButton(onClick = { onOpenSearch(subscription.query) }) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                    contentDescription = stringResource(KMR.strings.following_open_author_search),
+                )
+            }
+        }
 
         if (!expanded) return@Column
 

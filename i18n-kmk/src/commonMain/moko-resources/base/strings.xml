@@ -17,7 +17,15 @@
     <string name="action_open_folder">Open folder</string>
     <string name="action_clear_manga">Clear manga</string>
     <string name="action_update">Update</string>
+    <string name="action_save">Save</string>
     <string name="following">Following</string>
+    <string name="author_management">Author management</string>
+    <string name="action_reorder_authors">Reorder authors</string>
+    <string name="action_pin_author">Pin author</string>
+    <string name="action_unpin_author">Unpin author</string>
+    <string name="action_move_author_top">Move author to top</string>
+    <string name="action_move_author_bottom">Move author to bottom</string>
+    <string name="author_rank_save_failed">Failed to save author order</string>
     <string name="following_empty">No followed authors</string>
     <string name="following_refresh_author">Refresh author</string>
     <string name="following_open_author_search">Open author search</string>

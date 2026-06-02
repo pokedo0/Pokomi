@@ -91,6 +91,48 @@ class FollowingScreenModel(
         refresh(refreshIds)
     }
 
+    fun onAuthorRankOpened() {
+        mutableState.update {
+            it.copy(activeRankOrderSnapshot = it.subscriptions.toOrderSnapshot())
+        }
+    }
+
+    fun onAuthorRankSaved(anchorId: Long?) {
+        if (anchorId == null) return
+
+        mutableState.update {
+            it.copy(
+                pendingRankAnchorId = anchorId,
+                pendingRankOrderSnapshot = it.activeRankOrderSnapshot ?: it.subscriptions.toOrderSnapshot(),
+                activeRankOrderSnapshot = null,
+            )
+        }
+    }
+
+    fun onAuthorRankAnchorShown(anchorId: Long) {
+        mutableState.update {
+            if (it.pendingRankAnchorId != anchorId) {
+                it
+            } else {
+                it.copy(
+                    pendingRankAnchorId = null,
+                    pendingRankOrderSnapshot = null,
+                    highlightedAuthorId = anchorId,
+                )
+            }
+        }
+    }
+
+    fun clearAuthorRankHighlight(anchorId: Long) {
+        mutableState.update {
+            if (it.highlightedAuthorId == anchorId) {
+                it.copy(highlightedAuthorId = null)
+            } else {
+                it
+            }
+        }
+    }
+
     private fun refresh(subscriptionIds: Collection<Long>) {
         mutableState.update {
             it.copy(
@@ -169,10 +211,31 @@ class FollowingScreenModel(
     data class State(
         val subscriptions: List<AuthorSubscription> = emptyList(),
         val results: PersistentMap<Long, SearchItemResult> = persistentMapOf(),
+        val activeRankOrderSnapshot: List<AuthorRankOrderSnapshotItem>? = null,
+        val pendingRankAnchorId: Long? = null,
+        val pendingRankOrderSnapshot: List<AuthorRankOrderSnapshotItem>? = null,
+        val highlightedAuthorId: Long? = null,
     )
 
     companion object {
         private const val INITIAL_LOAD_COUNT = 5
         private const val MAX_CONCURRENT_REQUESTS = 5
+    }
+}
+
+@Immutable
+data class AuthorRankOrderSnapshotItem(
+    val id: Long,
+    val sortOrder: Long,
+    val pinned: Boolean,
+)
+
+private fun List<AuthorSubscription>.toOrderSnapshot(): List<AuthorRankOrderSnapshotItem> {
+    return map {
+        AuthorRankOrderSnapshotItem(
+            id = it.id,
+            sortOrder = it.sortOrder,
+            pinned = it.pinned,
+        )
     }
 }

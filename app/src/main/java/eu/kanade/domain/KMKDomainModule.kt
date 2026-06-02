@@ -6,6 +6,10 @@ import tachiyomi.data.libraryUpdateError.LibraryUpdateErrorWithRelationsReposito
 import tachiyomi.data.libraryUpdateErrorMessage.LibraryUpdateErrorMessageRepositoryImpl
 import tachiyomi.domain.authorSubscription.interactor.DeleteAuthorSubscription
 import tachiyomi.domain.authorSubscription.interactor.GetAuthorSubscriptions
+import tachiyomi.domain.authorSubscription.interactor.MoveAuthorSubscriptionToBottom
+import tachiyomi.domain.authorSubscription.interactor.MoveAuthorSubscriptionToTop
+import tachiyomi.domain.authorSubscription.interactor.ReorderAuthorSubscriptions
+import tachiyomi.domain.authorSubscription.interactor.ToggleAuthorSubscriptionPinned
 import tachiyomi.domain.authorSubscription.interactor.UpdateAuthorSubscriptionRefreshTime
 import tachiyomi.domain.authorSubscription.interactor.UpsertAuthorSubscription
 import tachiyomi.domain.authorSubscription.repository.AuthorSubscriptionRepository
@@ -33,6 +37,10 @@ class KMKDomainModule : InjektModule {
         addFactory { UpsertAuthorSubscription(get()) }
         addFactory { DeleteAuthorSubscription(get()) }
         addFactory { UpdateAuthorSubscriptionRefreshTime(get()) }
+        addFactory { ReorderAuthorSubscriptions(get()) }
+        addFactory { MoveAuthorSubscriptionToTop(get()) }
+        addFactory { MoveAuthorSubscriptionToBottom(get()) }
+        addFactory { ToggleAuthorSubscriptionPinned(get()) }
 
         addSingletonFactory<LibraryUpdateErrorWithRelationsRepository> {
             LibraryUpdateErrorWithRelationsRepositoryImpl(get())

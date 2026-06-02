@@ -7,7 +7,8 @@ CREATE TABLE author_subscription(
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     last_refresh_at INTEGER,
-    sort_order INTEGER NOT NULL
+    sort_order INTEGER NOT NULL,
+    pinned INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE UNIQUE INDEX author_subscription_normalized_query_index
@@ -16,7 +17,7 @@ ON author_subscription(normalized_query);
 selectAll:
 SELECT *
 FROM author_subscription
-ORDER BY sort_order ASC, _id ASC;
+ORDER BY pinned DESC, sort_order ASC, _id ASC;
 
 selectById:
 SELECT *
@@ -63,6 +64,21 @@ updateLastRefreshAt:
 UPDATE author_subscription
 SET
     last_refresh_at = :lastRefreshAt,
+    updated_at = :updatedAt
+WHERE _id = :id;
+
+updateOrder:
+UPDATE author_subscription
+SET
+    sort_order = :sortOrder,
+    pinned = :pinned,
+    updated_at = :updatedAt
+WHERE _id = :id;
+
+updatePinned:
+UPDATE author_subscription
+SET
+    pinned = :pinned,
     updated_at = :updatedAt
 WHERE _id = :id;
 

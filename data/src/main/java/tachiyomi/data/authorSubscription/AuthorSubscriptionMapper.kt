@@ -13,6 +13,7 @@ object AuthorSubscriptionMapper {
         updatedAt: Long,
         lastRefreshAt: Long?,
         sortOrder: Long,
+        pinned: Long,
     ): AuthorSubscription {
         return AuthorSubscription(
             id = id,
@@ -24,6 +25,7 @@ object AuthorSubscriptionMapper {
             updatedAt = updatedAt,
             lastRefreshAt = lastRefreshAt,
             sortOrder = sortOrder,
+            pinned = pinned != 0L,
         )
     }
 }

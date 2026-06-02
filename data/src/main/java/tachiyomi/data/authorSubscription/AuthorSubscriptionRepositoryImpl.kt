@@ -3,6 +3,7 @@ package tachiyomi.data.authorSubscription
 import kotlinx.coroutines.flow.Flow
 import tachiyomi.data.DatabaseHandler
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
+import tachiyomi.domain.authorSubscription.model.AuthorSubscriptionOrderUpdate
 import tachiyomi.domain.authorSubscription.repository.AuthorSubscriptionRepository
 
 class AuthorSubscriptionRepositoryImpl(
@@ -74,6 +75,36 @@ class AuthorSubscriptionRepositoryImpl(
                 id = id,
             )
         }
+    }
+
+    override suspend fun updateOrder(updates: List<AuthorSubscriptionOrderUpdate>) {
+        if (updates.isEmpty()) return
+
+        val updatedAt = System.currentTimeMillis()
+        handler.await(inTransaction = true) {
+            updates.forEach { update ->
+                author_subscriptionQueries.updateOrder(
+                    sortOrder = update.sortOrder,
+                    pinned = update.pinned.toLong(),
+                    updatedAt = updatedAt,
+                    id = update.id,
+                )
+            }
+        }
+    }
+
+    override suspend fun updatePinned(id: Long, pinned: Boolean) {
+        handler.await {
+            author_subscriptionQueries.updatePinned(
+                pinned = pinned.toLong(),
+                updatedAt = System.currentTimeMillis(),
+                id = id,
+            )
+        }
+    }
+
+    private fun Boolean.toLong(): Long {
+        return if (this) 1L else 0L
     }
 
     override suspend fun deleteById(id: Long) {

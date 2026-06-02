@@ -45,7 +45,16 @@ data object FollowingTab : Tab {
             onPullRefresh = screenModel::refreshLoaded,
             onRefresh = screenModel::refresh,
             onOpenSearch = { query -> navigator.push(GlobalSearchScreen(query)) },
+            onRankAuthors = { anchorId ->
+                screenModel.onAuthorRankOpened()
+                navigator.push(AuthorRankScreen(anchorId, screenModel::onAuthorRankSaved))
+            },
             onVisible = screenModel::loadVisible,
+            pendingRankAnchorId = state.pendingRankAnchorId,
+            pendingRankOrderSnapshot = state.pendingRankOrderSnapshot,
+            highlightedAuthorId = state.highlightedAuthorId,
+            onRankAnchorShown = screenModel::onAuthorRankAnchorShown,
+            onHighlightConsumed = screenModel::clearAuthorRankHighlight,
         )
     }
 }

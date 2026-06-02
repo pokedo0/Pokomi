@@ -10,6 +10,7 @@ data class AuthorSubscription(
     val updatedAt: Long,
     val lastRefreshAt: Long?,
     val sortOrder: Long,
+    val pinned: Boolean,
 ) {
     companion object {
         fun normalizeQuery(query: String): String {

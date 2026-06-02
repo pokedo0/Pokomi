@@ -1,29 +1,38 @@
 package eu.kanade.presentation.following
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.SortByAlpha
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import eu.kanade.presentation.browse.components.GlobalSearchCardRow
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.library.components.CollapsibleAuthorHeader
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchItemResult
+import eu.kanade.tachiyomi.ui.following.AuthorRankOrderSnapshotItem
+import kotlinx.coroutines.delay
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.kmk.KMR
@@ -42,16 +51,64 @@ fun FollowingScreen(
     onPullRefresh: () -> Unit,
     onRefresh: (Long) -> Unit,
     onOpenSearch: (String) -> Unit,
+    onRankAuthors: (Long?) -> Unit,
     onVisible: (Long) -> Unit,
+    pendingRankAnchorId: Long?,
+    pendingRankOrderSnapshot: List<AuthorRankOrderSnapshotItem>?,
+    highlightedAuthorId: Long?,
+    onRankAnchorShown: (Long) -> Unit,
+    onHighlightConsumed: (Long) -> Unit,
 ) {
     val isRefreshing = results.values.any { it is SearchItemResult.Loading }
     var collapsedIds by rememberSaveable { mutableStateOf(emptyList<Long>()) }
     val collapsedIdSet = remember(collapsedIds) { collapsedIds.toSet() }
+    val lazyListState = rememberLazyListState()
+    val currentVisibleAuthorId by remember(subscriptions) {
+        derivedStateOf {
+            subscriptions.getOrNull(lazyListState.firstVisibleItemIndex)?.id
+        }
+    }
+    val currentOrderSnapshot = remember(subscriptions) {
+        subscriptions.map {
+            AuthorRankOrderSnapshotItem(
+                id = it.id,
+                sortOrder = it.sortOrder,
+                pinned = it.pinned,
+            )
+        }
+    }
+
+    LaunchedEffect(pendingRankAnchorId, pendingRankOrderSnapshot, currentOrderSnapshot) {
+        val anchorId = pendingRankAnchorId ?: return@LaunchedEffect
+        if (pendingRankOrderSnapshot == null || pendingRankOrderSnapshot == currentOrderSnapshot) {
+            return@LaunchedEffect
+        }
+
+        val index = subscriptions.indexOfFirst { it.id == anchorId }
+        if (index >= 0) {
+            lazyListState.animateScrollToItem(index)
+            onRankAnchorShown(anchorId)
+        }
+    }
+
+    LaunchedEffect(highlightedAuthorId) {
+        val anchorId = highlightedAuthorId ?: return@LaunchedEffect
+        delay(AUTHOR_HIGHLIGHT_DURATION_MS)
+        onHighlightConsumed(anchorId)
+    }
 
     Scaffold(
         topBar = { scrollBehavior ->
             AppBar(
                 title = stringResource(KMR.strings.following),
+                actions = {
+                    IconButton(onClick = { onRankAuthors(currentVisibleAuthorId) }) {
+                        Icon(
+                            imageVector = Icons.Outlined.SortByAlpha,
+                            contentDescription = stringResource(KMR.strings.action_reorder_authors),
+                        )
+                    }
+                },
                 scrollBehavior = scrollBehavior,
             )
         },
@@ -68,7 +125,10 @@ fun FollowingScreen(
                     modifier = Modifier.padding(paddingValues),
                 )
             } else {
-                LazyColumn(contentPadding = paddingValues) {
+                LazyColumn(
+                    state = lazyListState,
+                    contentPadding = paddingValues,
+                ) {
                     items(subscriptions, key = { it.id }) { subscription ->
                         val expanded = subscription.id !in collapsedIdSet
                         FollowingAuthorSection(
@@ -88,6 +148,7 @@ fun FollowingScreen(
                             onRefresh = onRefresh,
                             onOpenSearch = onOpenSearch,
                             onVisible = onVisible,
+                            highlighted = subscription.id == highlightedAuthorId,
                             modifier = Modifier.animateItem(),
                         )
                     }
@@ -109,13 +170,25 @@ private fun FollowingAuthorSection(
     onRefresh: (Long) -> Unit,
     onOpenSearch: (String) -> Unit,
     onVisible: (Long) -> Unit,
+    highlighted: Boolean,
     modifier: Modifier = Modifier,
 ) {
     LaunchedEffect(subscription.id) {
         onVisible(subscription.id)
     }
 
-    Column(modifier = modifier) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (highlighted) {
+            MaterialTheme.colorScheme.secondaryContainer
+        } else {
+            Color.Transparent
+        },
+        label = "followingAuthorHighlight",
+    )
+
+    Column(
+        modifier = modifier.background(backgroundColor),
+    ) {
         CollapsibleAuthorHeader(
             title = subscription.name,
             expanded = expanded,
@@ -152,3 +225,5 @@ private fun FollowingAuthorSection(
         }
     }
 }
+
+private const val AUTHOR_HIGHLIGHT_DURATION_MS = 2_000L

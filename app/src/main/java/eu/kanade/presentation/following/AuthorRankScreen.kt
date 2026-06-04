@@ -107,6 +107,7 @@ private fun AuthorRankContent(
 ) {
     val initialIndex = state.items.indexOfFirst { it.id == state.initialAuthorId }.coerceAtLeast(0)
     val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+    val translateAuthorName = rememberAuthorNameTranslator()
     val reorderableState = rememberReorderableLazyListState(lazyListState, paddingValues) { from, to ->
         if (!state.saving) {
             onReorder(from.index, to.index)
@@ -135,6 +136,7 @@ private fun AuthorRankContent(
                 Column(modifier = Modifier.animateItem()) {
                     AuthorRankRow(
                         subscription = subscription,
+                        displayName = translateAuthorName(subscription.name),
                         enabled = !state.saving,
                         onTogglePinned = { onTogglePinned(subscription.id) },
                         onMoveToTop = { onMoveToTop(subscription.id) },
@@ -154,6 +156,7 @@ private fun AuthorRankContent(
 @Composable
 private fun ReorderableCollectionItemScope.AuthorRankRow(
     subscription: AuthorSubscription,
+    displayName: String,
     enabled: Boolean,
     onTogglePinned: () -> Unit,
     onMoveToTop: () -> Unit,
@@ -177,7 +180,7 @@ private fun ReorderableCollectionItemScope.AuthorRankRow(
                 .draggableHandle(enabled = enabled),
         )
         Text(
-            text = subscription.name,
+            text = displayName,
             style = MaterialTheme.typography.bodyLarge,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,

@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import eu.kanade.core.preference.PreferenceMutableState
+import eu.kanade.presentation.following.rememberAuthorNameTranslator
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -124,6 +125,7 @@ private fun LibraryAuthorListSections(
     onLongClickManga: (Category, LibraryManga) -> Unit,
     onClickContinueReading: ((LibraryManga) -> Unit)?,
 ) {
+    val translateAuthorName = rememberAuthorNameTranslator()
     FastScrollLazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = contentPadding + PaddingValues(vertical = 8.dp),
@@ -144,7 +146,7 @@ private fun LibraryAuthorListSections(
                 contentType = "library_author_header",
             ) {
                 CollapsibleAuthorHeader(
-                    title = category.name,
+                    title = translateAuthorName(category.name),
                     expanded = expanded,
                     onClick = { onToggleCollapsed(category) },
                     modifier = Modifier.animateItem(),
@@ -208,6 +210,7 @@ private fun LibraryAuthorGridSections(
     onLongClickManga: (Category, LibraryManga) -> Unit,
     onClickContinueReading: ((LibraryManga) -> Unit)?,
 ) {
+    val translateAuthorName = rememberAuthorNameTranslator()
     LazyLibraryGrid(
         modifier = Modifier.fillMaxSize(),
         columns = columns,
@@ -223,7 +226,7 @@ private fun LibraryAuthorGridSections(
                 contentType = "library_author_header",
             ) {
                 CollapsibleAuthorHeader(
-                    title = category.name,
+                    title = translateAuthorName(category.name),
                     expanded = expanded,
                     onClick = { onToggleCollapsed(category) },
                     modifier = Modifier.animateItem(),

@@ -15,6 +15,7 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.browse.ExtensionReposScreen
+import eu.kanade.tachiyomi.data.translation.AuthorTagTranslator
 import eu.kanade.tachiyomi.ui.category.sources.SourceCategoryScreen
 import eu.kanade.tachiyomi.util.system.AuthenticatorUtil.authenticate
 import kotlinx.collections.immutable.persistentListOf
@@ -54,6 +55,7 @@ object SettingsBrowseScreen : SearchableSettings {
         // SY <--
         // KMK -->
         val relatedMangasInOverflow by uiPreferences.expandRelatedMangas().collectAsState()
+        val authorTagTranslator = remember { Injekt.get<AuthorTagTranslator>() }
         // KMK <--
         return listOf(
             // SY -->
@@ -83,6 +85,15 @@ object SettingsBrowseScreen : SearchableSettings {
                         title = stringResource(KMR.strings.pref_show_home_on_related_mangas),
                         subtitle = stringResource(KMR.strings.pref_show_home_on_related_mangas_summary),
                         enabled = sourcePreferences.relatedMangas().get(),
+                    ),
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = uiPreferences.translateAuthorNames(),
+                        title = stringResource(KMR.strings.pref_translate_author_names),
+                        subtitle = stringResource(KMR.strings.pref_translate_author_names_summary),
+                        onValueChanged = { enabled ->
+                            if (enabled) authorTagTranslator.launchUpdate()
+                            true
+                        },
                     ),
                     // KMK <--
                     run {

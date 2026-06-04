@@ -3,8 +3,8 @@ package eu.kanade.presentation.following
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -25,6 +25,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.browse.components.GlobalSearchCardRow
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
@@ -36,10 +37,14 @@ import kotlinx.coroutines.delay
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
+import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.components.material.topSmallPaddingValues
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
+import tachiyomi.presentation.core.util.plus
 
 @Composable
 fun FollowingScreen(
@@ -63,6 +68,7 @@ fun FollowingScreen(
     var collapsedIds by rememberSaveable { mutableStateOf(emptyList<Long>()) }
     val collapsedIdSet = remember(collapsedIds) { collapsedIds.toSet() }
     val lazyListState = rememberLazyListState()
+    val translateAuthorName = rememberAuthorNameTranslator()
     val currentVisibleAuthorId by remember(subscriptions) {
         derivedStateOf {
             subscriptions.getOrNull(lazyListState.firstVisibleItemIndex)?.id
@@ -125,14 +131,15 @@ fun FollowingScreen(
                     modifier = Modifier.padding(paddingValues),
                 )
             } else {
-                LazyColumn(
+                ScrollbarLazyColumn(
                     state = lazyListState,
-                    contentPadding = paddingValues,
+                    contentPadding = paddingValues + topSmallPaddingValues,
                 ) {
                     items(subscriptions, key = { it.id }) { subscription ->
                         val expanded = subscription.id !in collapsedIdSet
                         FollowingAuthorSection(
                             subscription = subscription,
+                            displayName = translateAuthorName(subscription.name),
                             result = results[subscription.id],
                             expanded = expanded,
                             getManga = getManga,
@@ -161,6 +168,7 @@ fun FollowingScreen(
 @Composable
 private fun FollowingAuthorSection(
     subscription: AuthorSubscription,
+    displayName: String,
     result: SearchItemResult?,
     expanded: Boolean,
     getManga: @Composable (Manga) -> State<Manga>,
@@ -190,9 +198,16 @@ private fun FollowingAuthorSection(
         modifier = modifier.background(backgroundColor),
     ) {
         CollapsibleAuthorHeader(
-            title = subscription.name,
+            title = displayName,
             expanded = expanded,
             onClick = onToggleExpanded,
+            titleTextStyle = MaterialTheme.typography.titleMedium,
+            contentPadding = PaddingValues(
+                start = MaterialTheme.padding.small,
+                end = MaterialTheme.padding.small,
+                top = 4.dp,
+                bottom = 0.dp,
+            ),
         ) {
             IconButton(onClick = { onRefresh(subscription.id) }) {
                 Icon(
@@ -220,6 +235,10 @@ private fun FollowingAuthorSection(
                 onClick = onClickManga,
                 onLongClick = onLongClickManga,
                 selection = emptyList(),
+                contentPadding = PaddingValues(
+                    horizontal = MaterialTheme.padding.small,
+                    vertical = 0.dp,
+                ),
             )
             is SearchItemResult.Error -> GlobalSearchErrorResultItem(result.throwable.message)
         }

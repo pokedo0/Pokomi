@@ -39,6 +39,7 @@ fun GlobalSearchCardRow(
     onLongClick: (Manga) -> Unit,
     // KMK -->
     selection: List<Manga>,
+    contentPadding: PaddingValues = PaddingValues(MaterialTheme.padding.small),
     // KMK <--
 ) {
     if (titles.isEmpty()) {
@@ -47,7 +48,7 @@ fun GlobalSearchCardRow(
     }
 
     LazyRow(
-        contentPadding = PaddingValues(MaterialTheme.padding.small),
+        contentPadding = contentPadding,
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
     ) {
         items(titles) {

@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyGridItemInfo
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material3.MaterialTheme
@@ -324,7 +325,6 @@ fun VerticalGridFastScroller(
             val trackHeightPx = heightPx - thumbHeightPx
 
             val columnCount = remember(columns) { slotSizesSums(constraints).size.coerceAtLeast(1) }
-            val scrollRange = remember(columns) { computeGridScrollRange(state = state, columnCount = columnCount) }
 
             // When thumb dragged
             LaunchedEffect(thumbOffsetY) {
@@ -333,22 +333,35 @@ fun VerticalGridFastScroller(
                 val startChild = visibleItems.first()
                 val endChild = visibleItems.last()
                 val laidOutArea = (endChild.offset.y + endChild.size.height) - startChild.offset.y
-                val laidOutRows = 1 + abs(endChild.index - startChild.index) / columnCount
-                val avgSizePerRow = laidOutArea.toFloat() / laidOutRows
+                val laidOutRows = abs(endChild.row - startChild.row) + 1
+                val avgSizePerRow = laidOutArea.toFloat() / laidOutRows.coerceAtLeast(1)
 
+                val scrollRange = computeGridScrollRange(state = state)
                 val scrollRatio = (thumbOffsetY - thumbTopPadding) / trackHeightPx
                 val scrollAmt = scrollRatio * (scrollRange.toFloat() - heightPx).coerceAtLeast(1f)
-                val rowNumber = (scrollAmt / avgSizePerRow).toInt()
+                val rowNumber = (scrollAmt / avgSizePerRow.coerceAtLeast(1f)).toInt()
                 val rowOffset = scrollAmt - rowNumber * avgSizePerRow
 
-                state.scrollToItem(index = columnCount * rowNumber, scrollOffset = rowOffset.roundToInt())
+                val itemsVisible = visibleItems.size
+                val itemsPerRow = itemsVisible.toFloat() / laidOutRows.coerceAtLeast(1)
+                val totalItemsAfter = state.layoutInfo.totalItemsCount - 1 - endChild.index
+                val rowsAfter = if (itemsPerRow > 0f) (totalItemsAfter / itemsPerRow) else 0f
+                val totalRows = startChild.row + laidOutRows + rowsAfter
+
+                val avgItemsPerRow = if (totalRows > 0f) (layoutInfo.totalItemsCount.toFloat() / totalRows) else columnCount.toFloat()
+                val scrollItemIndex = (rowNumber * avgItemsPerRow).toInt().coerceIn(0, layoutInfo.totalItemsCount - 1)
+
+                state.scrollToItem(index = scrollItemIndex, scrollOffset = rowOffset.roundToInt())
                 scrolled.tryEmit(Unit)
             }
 
             // When list scrolled
-            LaunchedEffect(state.firstVisibleItemScrollOffset) {
+            val firstVisibleItemScrollOffset = state.firstVisibleItemScrollOffset
+            val firstVisibleItemIndex = state.firstVisibleItemIndex
+            LaunchedEffect(firstVisibleItemScrollOffset, firstVisibleItemIndex) {
                 if (state.layoutInfo.totalItemsCount == 0 || isThumbDragged) return@LaunchedEffect
-                val scrollOffset = computeGridScrollOffset(state = state, columnCount = columnCount)
+                val scrollOffset = computeGridScrollOffset(state = state)
+                val scrollRange = computeGridScrollRange(state = state)
                 /*
                     LazyGridItemInfo doesn't always give the accurate height of the object, so we clamp the proportion
                     at 1 to ensure that there are no issues due to this -- ideally we would correctly compute the value
@@ -427,31 +440,36 @@ fun VerticalGridFastScroller(
 
 // TODO: not sure why abs corrections are in the following functions; these can probably be removed
 
-private fun computeGridScrollOffset(state: LazyGridState, columnCount: Int): Int {
+private fun computeGridScrollOffset(state: LazyGridState): Int {
     if (state.layoutInfo.totalItemsCount == 0) return 0
     val visibleItems = state.layoutInfo.visibleItemsInfo
     val startChild = visibleItems.first()
     val endChild = visibleItems.last()
     val laidOutArea = (endChild.offset.y + endChild.size.height) - startChild.offset.y
-    val laidOutRows = 1 + abs(endChild.index - startChild.index) / columnCount
+    val laidOutRows = abs(endChild.row - startChild.row) + 1
     val avgSizePerRow = laidOutArea.toFloat() / laidOutRows
 
-    val rowsBefore = min(startChild.index, endChild.index).coerceAtLeast(0) / columnCount
+    val rowsBefore = startChild.row
     return (rowsBefore * avgSizePerRow - startChild.offset.y).roundToInt()
 }
 
-private fun computeGridScrollRange(state: LazyGridState, columnCount: Int): Int {
+private fun computeGridScrollRange(state: LazyGridState): Int {
     if (state.layoutInfo.totalItemsCount == 0) return 0
     val visibleItems = state.layoutInfo.visibleItemsInfo
     val startChild = visibleItems.first()
     val endChild = visibleItems.last()
     val laidOutArea = (endChild.offset.y + endChild.size.height) - startChild.offset.y
-    val laidOutRows = 1 + abs(endChild.index - startChild.index) / columnCount
+    val laidOutRows = abs(endChild.row - startChild.row) + 1
     val avgSizePerRow = laidOutArea.toFloat() / laidOutRows
 
-    val totalRows = 1 + (state.layoutInfo.totalItemsCount - 1) / columnCount
+    val itemsVisible = visibleItems.size
+    val itemsPerRow = itemsVisible.toFloat() / laidOutRows
+    val totalItemsAfter = state.layoutInfo.totalItemsCount - 1 - endChild.index
+    val rowsAfter = if (itemsPerRow > 0f) (totalItemsAfter / itemsPerRow) else 0f
+
+    val totalRows = startChild.row + laidOutRows + rowsAfter
     val endSpacing = avgSizePerRow - endChild.size.height
-    return (endSpacing + (laidOutArea.toFloat() / laidOutRows) * totalRows).roundToInt()
+    return (endSpacing + avgSizePerRow * totalRows).roundToInt()
 }
 
 private class MutableData<T>(var value: T)

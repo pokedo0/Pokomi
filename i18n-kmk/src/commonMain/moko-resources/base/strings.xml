@@ -35,6 +35,16 @@
     <string name="following_switch_source">Switch subscribed source</string>
     <string name="following_unsubscribe_confirmation">Remove this author subscription?</string>
     <string name="following_unsubscribe_confirm">Remove</string>
+    <string name="following_rate_limited">Rate limited, retrying %1$d/%2$d</string>
+    <string name="following_stalled">Paused after repeated rate limits</string>
+    <string name="following_retry">Retry</string>
+    <string name="following_refresh_all">Refresh all</string>
+    <string name="pref_following_auto_load_all">Load all authors at once</string>
+    <string name="pref_following_auto_load_all_summary">Queue every followed author on open instead of loading on scroll</string>
+    <string name="pref_following_cache_ttl">Cache duration</string>
+    <string name="pref_category_following">Following</string>
+    <string name="pref_following_summary">Loading, rate limit and cache behavior</string>
+    <string name="pref_following_cache_ttl_summary">Hours before a cached author result is refreshed. 0 = never auto-refresh.</string>
         <!-- History section -->
     <string name="action_filter_unfinished_manga">Unfinished manga</string>
     <string name="action_filter_unfinished_chapter">Unfinished chapter</string>

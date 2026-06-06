@@ -5,8 +5,8 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.produceState
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.source.CatalogueSource
-import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchItemResult
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.mutate
 import kotlinx.collections.immutable.persistentMapOf
@@ -14,11 +14,11 @@ import kotlinx.collections.immutable.toPersistentMap
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import mihon.domain.manga.model.toDomainManga
 import tachiyomi.core.common.util.QuerySanitizer.sanitize
@@ -26,6 +26,7 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.authorSubscription.interactor.GetAuthorSubscriptions
 import tachiyomi.domain.authorSubscription.interactor.UpdateAuthorSubscriptionRefreshTime
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
+import tachiyomi.domain.authorSubscription.service.FollowingPreferences
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
@@ -41,6 +42,7 @@ class FollowingScreenModel(
     private val sourceManager: SourceManager = Injekt.get(),
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
+    private val followingPreferences: FollowingPreferences = Injekt.get(),
 ) : StateScreenModel<FollowingScreenModel.State>(State()) {
 
     private val searchDispatcher = Executors.newFixedThreadPool(MAX_CONCURRENT_REQUESTS).asCoroutineDispatcher()
@@ -72,7 +74,11 @@ class FollowingScreenModel(
     }
 
     fun loadInitial() {
-        load(state.value.subscriptions.take(INITIAL_LOAD_COUNT).map { it.id })
+        if (followingPreferences.autoLoadAll().get()) {
+            load(state.value.subscriptions.map { it.id })
+        } else {
+            load(state.value.subscriptions.take(INITIAL_LOAD_COUNT).map { it.id })
+        }
     }
 
     fun loadVisible(subscriptionId: Long) {
@@ -88,7 +94,13 @@ class FollowingScreenModel(
         val refreshIds = loadedIds.ifEmpty {
             state.value.subscriptions.take(INITIAL_LOAD_COUNT).map { it.id }
         }
-        refresh(refreshIds)
+        // 下拉刷新：尊重 TTL，只补过期（force=false）
+        load(refreshIds.toList(), force = false)
+    }
+
+    fun refreshAll() {
+        // 全部刷新按钮：常驻，尊重 TTL，只补过期（force=false）
+        load(state.value.subscriptions.map { it.id }, force = false)
     }
 
     fun onAuthorRankOpened() {
@@ -134,22 +146,31 @@ class FollowingScreenModel(
     }
 
     private fun refresh(subscriptionIds: Collection<Long>) {
-        mutableState.update {
-            it.copy(
-                results = it.results.mutate { results ->
-                    subscriptionIds.forEach { subscriptionId ->
-                        results[subscriptionId] = SearchItemResult.Loading
-                    }
-                },
-            )
-        }
+        // 单作者强制刷新：force=true，无视 TTL
         load(subscriptionIds.toList(), force = true)
+    }
+
+    private enum class LoadDecision { Skip, Refresh }
+
+    private fun decideLoad(subscription: AuthorSubscription, force: Boolean): LoadDecision {
+        if (force) return LoadDecision.Refresh
+        val ttlHours = followingPreferences.cacheTtlHours().get().toIntOrNull()?.coerceAtLeast(0) ?: 24
+        val ttlMs = ttlHours * 3600_000L
+        val last = subscription.lastRefreshAt
+        val hasSuccess = state.value.results[subscription.id] is FollowingItemResult.Success
+        return when {
+            ttlMs == 0L -> LoadDecision.Refresh
+            last == null -> LoadDecision.Refresh
+            (System.currentTimeMillis() - last) >= ttlMs -> LoadDecision.Refresh
+            hasSuccess -> LoadDecision.Skip
+            else -> LoadDecision.Refresh
+        }
     }
 
     private fun load(subscriptionIds: List<Long>, force: Boolean = false) {
         val subscriptions = state.value.subscriptions
             .filter { it.id in subscriptionIds }
-            .filter { force || state.value.results[it.id] == null }
+            .filter { decideLoad(it, force) == LoadDecision.Refresh }
 
         if (subscriptions.isEmpty()) return
 
@@ -157,7 +178,7 @@ class FollowingScreenModel(
             it.copy(
                 results = it.results.mutate { results ->
                     subscriptions.forEach { subscription ->
-                        results[subscription.id] = SearchItemResult.Loading
+                        results[subscription.id] = FollowingItemResult.Loading
                     }
                 },
             )
@@ -165,39 +186,58 @@ class FollowingScreenModel(
 
         screenModelScope.launchIO {
             subscriptions.map { subscription ->
-                async {
-                    semaphore.withPermit {
-                        loadSubscription(subscription)
-                    }
-                }
+                async { loadWithRetry(subscription) }
             }.awaitAll()
         }
     }
 
-    private suspend fun loadSubscription(subscription: AuthorSubscription) {
+    private suspend fun loadWithRetry(subscription: AuthorSubscription) {
         val source = sourceManager.get(subscription.source) as? CatalogueSource
         if (source == null) {
-            updateResult(subscription.id, SearchItemResult.Error(IllegalStateException("Source not found")))
+            updateResult(subscription.id, FollowingItemResult.Error(IllegalStateException("Source not found")))
             return
         }
 
-        try {
-            val page = withContext(searchDispatcher) {
-                source.getSearchManga(1, subscription.query.sanitize(), source.getFilterList())
+        val backoff = longArrayOf(10, 20, 40, 80, 160, 300) // 秒
+        // attempt 0 = 首发；1..6 = 重试
+        for (attempt in 0..backoff.size) {
+            try {
+                semaphore.acquire()
+                val titles = try {
+                    val page = withContext(searchDispatcher) {
+                        source.getSearchManga(1, subscription.query.sanitize(), source.getFilterList())
+                    }
+                    page.mangas
+                        .map { it.toDomainManga(source.id) }
+                        .distinctBy { it.url }
+                        .let { networkToLocalManga(it) }
+                } finally {
+                    semaphore.release()
+                }
+                updateResult(subscription.id, FollowingItemResult.Success(titles))
+                updateAuthorSubscriptionRefreshTime.await(subscription.id)
+                return
+            } catch (e: HttpException) {
+                if (e.code != 429) {
+                    updateResult(subscription.id, FollowingItemResult.Error(e))
+                    return
+                }
+                if (attempt >= backoff.size) {
+                    updateResult(subscription.id, FollowingItemResult.Stalled)
+                    return
+                }
+                // 退避期间不占 semaphore 槽
+                updateResult(subscription.id, FollowingItemResult.RateLimited(attempt + 1, backoff.size))
+                delay(backoff[attempt] * 1000L)
+            } catch (e: Exception) {
+                updateResult(subscription.id, FollowingItemResult.Error(e))
+                return
             }
-            val titles = page.mangas
-                .map { it.toDomainManga(source.id) }
-                .distinctBy { it.url }
-                .let { networkToLocalManga(it) }
-
-            updateResult(subscription.id, SearchItemResult.Success(titles))
-            updateAuthorSubscriptionRefreshTime.await(subscription.id)
-        } catch (e: Exception) {
-            updateResult(subscription.id, SearchItemResult.Error(e))
         }
+        updateResult(subscription.id, FollowingItemResult.Stalled)
     }
 
-    private fun updateResult(subscriptionId: Long, result: SearchItemResult) {
+    private fun updateResult(subscriptionId: Long, result: FollowingItemResult) {
         mutableState.update {
             it.copy(
                 results = it.results.mutate { results ->
@@ -210,7 +250,7 @@ class FollowingScreenModel(
     @Immutable
     data class State(
         val subscriptions: List<AuthorSubscription> = emptyList(),
-        val results: PersistentMap<Long, SearchItemResult> = persistentMapOf(),
+        val results: PersistentMap<Long, FollowingItemResult> = persistentMapOf(),
         val activeRankOrderSnapshot: List<AuthorRankOrderSnapshotItem>? = null,
         val pendingRankAnchorId: Long? = null,
         val pendingRankOrderSnapshot: List<AuthorRankOrderSnapshotItem>? = null,

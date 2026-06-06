@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.GetApp
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.PersonSearch
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Storage
@@ -195,6 +196,14 @@ object SettingsMainScreen : Screen() {
             icon = Icons.Outlined.CollectionsBookmark,
             screen = SettingsLibraryScreen,
         ),
+        // KMK -->
+        Item(
+            titleRes = KMR.strings.pref_category_following,
+            subtitleRes = KMR.strings.pref_following_summary,
+            icon = Icons.Outlined.PersonSearch,
+            screen = SettingsFollowingScreen,
+        ),
+        // KMK <--
         Item(
             titleRes = MR.strings.pref_category_reader,
             subtitleRes = MR.strings.pref_reader_summary,

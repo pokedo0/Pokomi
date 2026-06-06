@@ -2,8 +2,10 @@ package eu.kanade.presentation.following
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -14,6 +16,8 @@ import androidx.compose.material.icons.outlined.SortByAlpha
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -23,16 +27,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.browse.components.GlobalSearchCardRow
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.library.components.CollapsibleAuthorHeader
-import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchItemResult
 import eu.kanade.tachiyomi.ui.following.AuthorRankOrderSnapshotItem
+import eu.kanade.tachiyomi.ui.following.FollowingItemResult
 import kotlinx.coroutines.delay
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.domain.manga.model.Manga
@@ -49,12 +55,13 @@ import tachiyomi.presentation.core.util.plus
 @Composable
 fun FollowingScreen(
     subscriptions: List<AuthorSubscription>,
-    results: Map<Long, SearchItemResult>,
+    results: Map<Long, FollowingItemResult>,
     getManga: @Composable (Manga) -> State<Manga>,
     onClickManga: (Manga) -> Unit,
     onLongClickManga: (Manga) -> Unit,
     onPullRefresh: () -> Unit,
     onRefresh: (Long) -> Unit,
+    onRefreshAll: () -> Unit,
     onOpenSearch: (String) -> Unit,
     onRankAuthors: (Long?) -> Unit,
     onVisible: (Long) -> Unit,
@@ -64,7 +71,9 @@ fun FollowingScreen(
     onRankAnchorShown: (Long) -> Unit,
     onHighlightConsumed: (Long) -> Unit,
 ) {
-    val isRefreshing = results.values.any { it is SearchItemResult.Loading }
+    val isRefreshing = results.values.any {
+        it is FollowingItemResult.Loading || it is FollowingItemResult.RateLimited
+    }
     var collapsedIds by rememberSaveable { mutableStateOf(emptyList<Long>()) }
     val collapsedIdSet = remember(collapsedIds) { collapsedIds.toSet() }
     val lazyListState = rememberLazyListState()
@@ -108,6 +117,12 @@ fun FollowingScreen(
             AppBar(
                 title = stringResource(KMR.strings.following),
                 actions = {
+                    IconButton(onClick = onRefreshAll) {
+                        Icon(
+                            imageVector = Icons.Outlined.Refresh,
+                            contentDescription = stringResource(KMR.strings.following_refresh_all),
+                        )
+                    }
                     IconButton(onClick = { onRankAuthors(currentVisibleAuthorId) }) {
                         Icon(
                             imageVector = Icons.Outlined.SortByAlpha,
@@ -169,7 +184,7 @@ fun FollowingScreen(
 private fun FollowingAuthorSection(
     subscription: AuthorSubscription,
     displayName: String,
-    result: SearchItemResult?,
+    result: FollowingItemResult?,
     expanded: Boolean,
     getManga: @Composable (Manga) -> State<Manga>,
     onClickManga: (Manga) -> Unit,
@@ -227,9 +242,47 @@ private fun FollowingAuthorSection(
 
         when (result) {
             null,
-            SearchItemResult.Loading,
+            FollowingItemResult.Loading,
             -> GlobalSearchLoadingResultItem()
-            is SearchItemResult.Success -> GlobalSearchCardRow(
+            is FollowingItemResult.RateLimited -> Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = MaterialTheme.padding.medium,
+                        vertical = MaterialTheme.padding.small,
+                    ),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                GlobalSearchLoadingResultItem()
+                Text(
+                    text = stringResource(
+                        KMR.strings.following_rate_limited,
+                        result.attempt,
+                        result.max,
+                    ),
+                    textAlign = TextAlign.Center,
+                )
+            }
+            FollowingItemResult.Stalled -> Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = MaterialTheme.padding.medium,
+                        vertical = MaterialTheme.padding.small,
+                    ),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    text = stringResource(KMR.strings.following_stalled),
+                    textAlign = TextAlign.Center,
+                )
+                TextButton(onClick = { onRefresh(subscription.id) }) {
+                    Text(text = stringResource(KMR.strings.following_retry))
+                }
+            }
+            is FollowingItemResult.Success -> GlobalSearchCardRow(
                 titles = result.result,
                 getManga = getManga,
                 onClick = onClickManga,
@@ -240,7 +293,7 @@ private fun FollowingAuthorSection(
                     vertical = 0.dp,
                 ),
             )
-            is SearchItemResult.Error -> GlobalSearchErrorResultItem(result.throwable.message)
+            is FollowingItemResult.Error -> GlobalSearchErrorResultItem(result.throwable.message)
         }
     }
 }

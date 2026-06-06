@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.domain.authorSubscription.model.AuthorSubscriptionOrderUpdate
+import tachiyomi.domain.authorSubscription.model.AuthorSubscriptionResultCache
 import tachiyomi.domain.authorSubscription.repository.AuthorSubscriptionRepository
 
 class AuthorSubscriptionOrderingTest {
@@ -308,6 +309,12 @@ class AuthorSubscriptionOrderingTest {
         override suspend fun upsert(source: Long, name: String, query: String, normalizedQuery: String): Long = 0
 
         override suspend fun updateLastRefreshAt(id: Long, lastRefreshAt: Long) = Unit
+
+        override suspend fun getResultCaches(
+            subscriptionIds: Collection<Long>,
+        ): List<AuthorSubscriptionResultCache> = emptyList()
+
+        override suspend fun upsertResultCache(subscriptionId: Long, mangaIds: List<Long>, cachedAt: Long) = Unit
 
         override suspend fun updateOrder(updates: List<AuthorSubscriptionOrderUpdate>) {
             orderUpdates += updates

@@ -72,7 +72,9 @@ fun FollowingScreen(
     onHighlightConsumed: (Long) -> Unit,
 ) {
     val isRefreshing = results.values.any {
-        it is FollowingItemResult.Loading || it is FollowingItemResult.RateLimited
+        it is FollowingItemResult.Loading ||
+            it is FollowingItemResult.RateLimited ||
+            (it is FollowingItemResult.Success && it.refreshing)
     }
     var collapsedIds by rememberSaveable { mutableStateOf(emptyList<Long>()) }
     val collapsedIdSet = remember(collapsedIds) { collapsedIds.toSet() }

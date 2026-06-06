@@ -8,6 +8,7 @@ sealed interface FollowingItemResult {
     data object Loading : FollowingItemResult
 
     data class RateLimited(
+        val sourceId: Long,
         val attempt: Int,
         val max: Int,
     ) : FollowingItemResult
@@ -20,5 +21,6 @@ sealed interface FollowingItemResult {
 
     data class Success(
         val result: List<Manga>,
+        val refreshing: Boolean = false,
     ) : FollowingItemResult
 }

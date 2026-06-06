@@ -3,6 +3,7 @@ package tachiyomi.domain.authorSubscription.repository
 import kotlinx.coroutines.flow.Flow
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.domain.authorSubscription.model.AuthorSubscriptionOrderUpdate
+import tachiyomi.domain.authorSubscription.model.AuthorSubscriptionResultCache
 
 interface AuthorSubscriptionRepository {
 
@@ -17,6 +18,10 @@ interface AuthorSubscriptionRepository {
     suspend fun upsert(source: Long, name: String, query: String, normalizedQuery: String): Long
 
     suspend fun updateLastRefreshAt(id: Long, lastRefreshAt: Long)
+
+    suspend fun getResultCaches(subscriptionIds: Collection<Long>): List<AuthorSubscriptionResultCache>
+
+    suspend fun upsertResultCache(subscriptionId: Long, mangaIds: List<Long>, cachedAt: Long)
 
     suspend fun updateOrder(updates: List<AuthorSubscriptionOrderUpdate>)
 

@@ -1,9 +1,9 @@
 package eu.kanade.presentation.following
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.collectAsState
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.data.translation.AuthorTagTranslator
 import tachiyomi.presentation.core.util.collectAsState

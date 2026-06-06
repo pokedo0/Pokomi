@@ -11,6 +11,7 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.mutate
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -20,11 +21,14 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import mihon.domain.manga.model.toDomainManga
 import tachiyomi.core.common.util.QuerySanitizer.sanitize
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.authorSubscription.interactor.GetAuthorSubscriptionResultCache
 import tachiyomi.domain.authorSubscription.interactor.GetAuthorSubscriptions
 import tachiyomi.domain.authorSubscription.interactor.UpdateAuthorSubscriptionRefreshTime
+import tachiyomi.domain.authorSubscription.interactor.UpsertAuthorSubscriptionResultCache
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.domain.authorSubscription.service.FollowingPreferences
 import tachiyomi.domain.manga.interactor.GetManga
@@ -34,11 +38,14 @@ import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.Executors
+import kotlin.coroutines.CoroutineContext
 import androidx.compose.runtime.State as ComposeState
 
 class FollowingScreenModel(
     private val getAuthorSubscriptions: GetAuthorSubscriptions = Injekt.get(),
+    private val getAuthorSubscriptionResultCache: GetAuthorSubscriptionResultCache = Injekt.get(),
     private val updateAuthorSubscriptionRefreshTime: UpdateAuthorSubscriptionRefreshTime = Injekt.get(),
+    private val upsertAuthorSubscriptionResultCache: UpsertAuthorSubscriptionResultCache = Injekt.get(),
     private val sourceManager: SourceManager = Injekt.get(),
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
@@ -46,7 +53,9 @@ class FollowingScreenModel(
 ) : StateScreenModel<FollowingScreenModel.State>(State()) {
 
     private val searchDispatcher = Executors.newFixedThreadPool(MAX_CONCURRENT_REQUESTS).asCoroutineDispatcher()
+    private val sourceRateLimitRetryDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private val semaphore = Semaphore(MAX_CONCURRENT_REQUESTS)
+    private val sourceRateLimitController = FollowingSourceRateLimitController(maxAttempts = SOURCE_RATE_LIMIT_MAX_ATTEMPTS)
 
     init {
         screenModelScope.launchIO {
@@ -152,89 +161,180 @@ class FollowingScreenModel(
 
     private enum class LoadDecision { Skip, Refresh }
 
-    private fun decideLoad(subscription: AuthorSubscription, force: Boolean): LoadDecision {
-        if (force) return LoadDecision.Refresh
-        val ttlHours = followingPreferences.cacheTtlHours().get().toIntOrNull()?.coerceAtLeast(0) ?: 24
-        val ttlMs = ttlHours * 3600_000L
-        val last = subscription.lastRefreshAt
+    private fun decideLoad(
+        subscription: AuthorSubscription,
+        force: Boolean,
+        cachePolicy: FollowingCachePolicy,
+    ): LoadDecision {
         val hasSuccess = state.value.results[subscription.id] is FollowingItemResult.Success
-        return when {
-            ttlMs == 0L -> LoadDecision.Refresh
-            last == null -> LoadDecision.Refresh
-            (System.currentTimeMillis() - last) >= ttlMs -> LoadDecision.Refresh
-            hasSuccess -> LoadDecision.Skip
-            else -> LoadDecision.Refresh
+        return if (
+            cachePolicy.shouldRefresh(
+                lastRefreshAt = subscription.lastRefreshAt,
+                hasSuccess = hasSuccess,
+                force = force,
+                now = System.currentTimeMillis(),
+            )
+        ) {
+            LoadDecision.Refresh
+        } else {
+            LoadDecision.Skip
         }
     }
 
     private fun load(subscriptionIds: List<Long>, force: Boolean = false) {
-        val subscriptions = state.value.subscriptions
+        val subscriptionsById = state.value.subscriptions
             .filter { it.id in subscriptionIds }
-            .filter { decideLoad(it, force) == LoadDecision.Refresh }
 
-        if (subscriptions.isEmpty()) return
+        if (subscriptionsById.isEmpty()) return
+
+        screenModelScope.launchIO {
+            val cachePolicy = FollowingCachePolicy.fromPreference(followingPreferences.cacheTtlHours().get())
+            val subscriptionsWithCache = if (cachePolicy.seedPersistentCache) {
+                seedCache(subscriptionIds, subscriptionsById)
+            } else {
+                subscriptionsById
+            }
+            val subscriptions = subscriptionsWithCache
+                .filter { decideLoad(it, force, cachePolicy) == LoadDecision.Refresh }
+
+            if (subscriptions.isEmpty()) return@launchIO
+
+            mutableState.update {
+                it.copy(
+                    results = it.results.mutate { results ->
+                        subscriptions.forEach { subscription ->
+                            results[subscription.id] = when (val result = results[subscription.id]) {
+                                is FollowingItemResult.Success -> result.copy(refreshing = true)
+                                else -> it.sourceRateLimits[subscription.source]
+                                    ?.toResult(subscription.source)
+                                    ?: FollowingItemResult.Loading
+                            }
+                        }
+                    },
+                )
+            }
+
+            subscriptions
+                .map { subscription ->
+                    async { loadOne(subscription) }
+                }
+                .awaitAll()
+        }
+    }
+
+    private suspend fun seedCache(
+        subscriptionIds: List<Long>,
+        subscriptions: List<AuthorSubscription>,
+    ): List<AuthorSubscription> {
+        val existingResultIds = state.value.results
+            .filterValues { it is FollowingItemResult.Success }
+            .keys
+        val uncachedIds = subscriptionIds - existingResultIds
+        if (uncachedIds.isEmpty()) return subscriptions
+
+        val caches = getAuthorSubscriptionResultCache.await(uncachedIds)
+            .associateBy { it.subscriptionId }
+        if (caches.isEmpty()) return subscriptions
 
         mutableState.update {
             it.copy(
                 results = it.results.mutate { results ->
-                    subscriptions.forEach { subscription ->
-                        results[subscription.id] = FollowingItemResult.Loading
+                    caches.forEach { (subscriptionId, cache) ->
+                        results[subscriptionId] = FollowingItemResult.Success(cache.mangas)
                     }
                 },
             )
         }
 
-        screenModelScope.launchIO {
-            subscriptions.map { subscription ->
-                async { loadWithRetry(subscription) }
-            }.awaitAll()
+        return subscriptions.map { subscription ->
+            caches[subscription.id]
+                ?.let { subscription.copy(lastRefreshAt = it.cachedAt) }
+                ?: subscription
         }
     }
 
-    private suspend fun loadWithRetry(subscription: AuthorSubscription) {
+    private suspend fun loadOne(
+        subscription: AuthorSubscription,
+        ignoreSourceRateLimit: Boolean = false,
+        useRetryLane: Boolean = false,
+    ): SourceLoadResult {
         val source = sourceManager.get(subscription.source) as? CatalogueSource
         if (source == null) {
             updateResult(subscription.id, FollowingItemResult.Error(IllegalStateException("Source not found")))
-            return
+            return SourceLoadResult.Finished
         }
 
-        val backoff = longArrayOf(10, 20, 40, 80, 160, 300) // 秒
-        // attempt 0 = 首发；1..6 = 重试
-        for (attempt in 0..backoff.size) {
-            try {
+        if (shortCircuitRateLimitedSource(subscription, ignoreSourceRateLimit)) {
+            return SourceLoadResult.Finished
+        }
+
+        try {
+            val titles = if (useRetryLane) {
+                searchSource(source, subscription, sourceRateLimitRetryDispatcher)
+            } else {
                 semaphore.acquire()
-                val titles = try {
-                    val page = withContext(searchDispatcher) {
-                        source.getSearchManga(1, subscription.query.sanitize(), source.getFilterList())
+                try {
+                    if (shortCircuitRateLimitedSource(subscription, ignoreSourceRateLimit)) {
+                        return SourceLoadResult.Finished
                     }
-                    page.mangas
-                        .map { it.toDomainManga(source.id) }
-                        .distinctBy { it.url }
-                        .let { networkToLocalManga(it) }
+                    searchSource(source, subscription, searchDispatcher)
                 } finally {
                     semaphore.release()
                 }
-                updateResult(subscription.id, FollowingItemResult.Success(titles))
-                updateAuthorSubscriptionRefreshTime.await(subscription.id)
-                return
-            } catch (e: HttpException) {
-                if (e.code != 429) {
-                    updateResult(subscription.id, FollowingItemResult.Error(e))
-                    return
-                }
-                if (attempt >= backoff.size) {
-                    updateResult(subscription.id, FollowingItemResult.Stalled)
-                    return
-                }
-                // 退避期间不占 semaphore 槽
-                updateResult(subscription.id, FollowingItemResult.RateLimited(attempt + 1, backoff.size))
-                delay(backoff[attempt] * 1000L)
-            } catch (e: Exception) {
-                updateResult(subscription.id, FollowingItemResult.Error(e))
-                return
             }
+            val refreshedAt = System.currentTimeMillis()
+            updateResult(subscription.id, FollowingItemResult.Success(titles))
+            recoverSourceRateLimit(subscription.source, subscription.id)
+            upsertAuthorSubscriptionResultCache.await(subscription.id, titles, refreshedAt)
+            updateAuthorSubscriptionRefreshTime.await(subscription.id, refreshedAt)
+            return SourceLoadResult.Finished
+        } catch (e: HttpException) {
+            if (e.code != 429) {
+                updateRefreshFailure(subscription.id, FollowingItemResult.Error(e))
+                return SourceLoadResult.Finished
+            }
+            val rateLimit = sourceRateLimitController.open(subscription.source, listOf(subscription.id))
+            updateRateLimitedSource(
+                sourceId = subscription.source,
+                subscriptionIds = listOf(subscription.id),
+                rateLimit = rateLimit,
+            )
+            startSourceRetry(subscription.source)
+            return SourceLoadResult.RateLimited
+        } catch (e: Exception) {
+            updateRefreshFailure(subscription.id, FollowingItemResult.Error(e))
+            return SourceLoadResult.Finished
         }
-        updateResult(subscription.id, FollowingItemResult.Stalled)
+    }
+
+    private suspend fun searchSource(
+        source: CatalogueSource,
+        subscription: AuthorSubscription,
+        dispatcher: CoroutineContext,
+    ): List<Manga> {
+        val page = withContext(dispatcher) {
+            source.getSearchManga(1, subscription.query.sanitize(), source.getFilterList())
+        }
+        return page.mangas
+            .map { it.toDomainManga(source.id) }
+            .distinctBy { it.url }
+            .let { networkToLocalManga(it) }
+    }
+
+    private fun shortCircuitRateLimitedSource(
+        subscription: AuthorSubscription,
+        ignoreSourceRateLimit: Boolean,
+    ): Boolean {
+        if (ignoreSourceRateLimit) return false
+
+        val rateLimit = sourceRateLimitController.join(subscription.source, listOf(subscription.id)) ?: return false
+        updateRateLimitedSource(
+            sourceId = subscription.source,
+            subscriptionIds = listOf(subscription.id),
+            rateLimit = rateLimit,
+        )
+        startSourceRetry(subscription.source)
+        return true
     }
 
     private fun updateResult(subscriptionId: Long, result: FollowingItemResult) {
@@ -247,10 +347,159 @@ class FollowingScreenModel(
         }
     }
 
+    private fun updateRefreshFailure(subscriptionId: Long, result: FollowingItemResult) {
+        mutableState.update {
+            it.copy(
+                results = it.results.mutate { results ->
+                    results[subscriptionId] = when (val current = results[subscriptionId]) {
+                        is FollowingItemResult.Success -> current.copy(refreshing = result is FollowingItemResult.RateLimited)
+                        else -> result
+                    }
+                },
+            )
+        }
+    }
+
+    private fun updateRateLimitedSource(
+        sourceId: Long,
+        subscriptionIds: List<Long>,
+        rateLimit: FollowingSourceRateLimit,
+    ) {
+        val activeSubscriptionIds = state.value.activeSourceSubscriptionIds(sourceId, subscriptionIds)
+        sourceRateLimitController.addPending(sourceId, activeSubscriptionIds)
+
+        mutableState.update {
+            it.copy(
+                sourceRateLimits = it.sourceRateLimits.mutate { sourceRateLimits ->
+                    sourceRateLimits[sourceId] = rateLimit
+                },
+                results = it.results.mutate { results ->
+                    activeSubscriptionIds.forEach { subscriptionId ->
+                        val rateLimited = FollowingItemResult.RateLimited(
+                            sourceId = sourceId,
+                            attempt = rateLimit.attempt,
+                            max = rateLimit.max,
+                        )
+                        results[subscriptionId] = when (val current = results[subscriptionId]) {
+                            is FollowingItemResult.Success -> current.copy(refreshing = true)
+                            else -> rateLimited
+                        }
+                    }
+                },
+            )
+        }
+    }
+
+    private fun startSourceRetry(sourceId: Long) {
+        if (!sourceRateLimitController.markRetryRunning(sourceId)) return
+
+        screenModelScope.launchIO {
+            while (true) {
+                val rateLimit = sourceRateLimitController.current(sourceId) ?: return@launchIO
+                delay(SOURCE_RATE_LIMIT_BACKOFF_SECONDS[rateLimit.attempt - 1] * 1000L)
+
+                val retrySubscription = state.value.subscriptions
+                    .firstOrNull { it.id in sourceRateLimitController.pendingSubscriptionIds(sourceId) }
+
+                if (retrySubscription == null) {
+                    sourceRateLimitController.close(sourceId)
+                    clearSourceRateLimit(sourceId)
+                    return@launchIO
+                }
+
+                val retryResult = try {
+                    withTimeout(SOURCE_RATE_LIMIT_RETRY_TIMEOUT_MS) {
+                        loadOne(retrySubscription, ignoreSourceRateLimit = true, useRetryLane = true)
+                    }
+                } catch (_: TimeoutCancellationException) {
+                    SourceLoadResult.RateLimited
+                }
+                when (retryResult) {
+                    SourceLoadResult.Finished -> {
+                        if (sourceRateLimitController.current(sourceId) != null) {
+                            recoverSourceRateLimit(sourceId, retrySubscription.id)
+                        }
+                        return@launchIO
+                    }
+                    SourceLoadResult.RateLimited -> {
+                        val nextRateLimit = sourceRateLimitController.advanceAfterFailedRetry(sourceId)
+                        if (nextRateLimit == null) {
+                            updateStalledSource(
+                                sourceId = sourceId,
+                                subscriptionIds = sourceRateLimitController.pendingSubscriptionIds(sourceId),
+                            )
+                            sourceRateLimitController.close(sourceId)
+                            return@launchIO
+                        }
+                        updateRateLimitedSource(
+                            sourceId = sourceId,
+                            subscriptionIds = sourceRateLimitController.pendingSubscriptionIds(sourceId),
+                            rateLimit = nextRateLimit,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun updateStalledSource(sourceId: Long, subscriptionIds: List<Long>) {
+        mutableState.update {
+            it.copy(
+                sourceRateLimits = it.sourceRateLimits.remove(sourceId),
+                results = it.results.mutate { results ->
+                    val activeSubscriptionIds = it.activeSourceSubscriptionIds(sourceId, subscriptionIds)
+                    activeSubscriptionIds.forEach { subscriptionId ->
+                        results[subscriptionId] = when (val current = results[subscriptionId]) {
+                            is FollowingItemResult.Success -> current.copy(refreshing = false)
+                            else -> FollowingItemResult.Stalled
+                        }
+                    }
+                },
+            )
+        }
+    }
+
+    private fun State.activeSourceSubscriptionIds(sourceId: Long, subscriptionIds: List<Long>): Set<Long> {
+        val activeIds = subscriptions
+            .asSequence()
+            .filter { it.source == sourceId }
+            .filter { subscription ->
+                when (val result = results[subscription.id]) {
+                    FollowingItemResult.Loading,
+                    is FollowingItemResult.RateLimited,
+                    -> true
+                    is FollowingItemResult.Success -> result.refreshing
+                    else -> false
+                }
+            }
+            .map { it.id }
+            .toSet()
+        return activeIds + subscriptionIds
+    }
+
+    private fun recoverSourceRateLimit(sourceId: Long, completedSubscriptionId: Long) {
+        val pendingSubscriptionIds = sourceRateLimitController.recover(sourceId, completedSubscriptionId)
+        clearSourceRateLimit(sourceId)
+        if (pendingSubscriptionIds.isNotEmpty()) {
+            load(pendingSubscriptionIds, force = true)
+        }
+    }
+
+    private fun clearSourceRateLimit(sourceId: Long) {
+        mutableState.update {
+            if (sourceId !in it.sourceRateLimits) {
+                it
+            } else {
+                it.copy(sourceRateLimits = it.sourceRateLimits.remove(sourceId))
+            }
+        }
+    }
+
     @Immutable
     data class State(
         val subscriptions: List<AuthorSubscription> = emptyList(),
         val results: PersistentMap<Long, FollowingItemResult> = persistentMapOf(),
+        val sourceRateLimits: PersistentMap<Long, FollowingSourceRateLimit> = persistentMapOf(),
         val activeRankOrderSnapshot: List<AuthorRankOrderSnapshotItem>? = null,
         val pendingRankAnchorId: Long? = null,
         val pendingRankOrderSnapshot: List<AuthorRankOrderSnapshotItem>? = null,
@@ -260,7 +509,29 @@ class FollowingScreenModel(
     companion object {
         private const val INITIAL_LOAD_COUNT = 5
         private const val MAX_CONCURRENT_REQUESTS = 5
+        private const val SOURCE_RATE_LIMIT_MAX_ATTEMPTS = 6
+        private const val SOURCE_RATE_LIMIT_RETRY_TIMEOUT_MS = 30_000L
+        private val SOURCE_RATE_LIMIT_BACKOFF_SECONDS = longArrayOf(10, 20, 40, 80, 160, 300)
     }
+}
+
+data class FollowingSourceRateLimit(
+    val attempt: Int,
+    val max: Int,
+) {
+    fun toResult(sourceId: Long): FollowingItemResult.RateLimited {
+        return FollowingItemResult.RateLimited(
+            sourceId = sourceId,
+            attempt = attempt,
+            max = max,
+        )
+    }
+}
+
+private sealed interface SourceLoadResult {
+    data object Finished : SourceLoadResult
+
+    data object RateLimited : SourceLoadResult
 }
 
 @Immutable

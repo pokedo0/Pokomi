@@ -2,9 +2,12 @@ package tachiyomi.data.authorSubscription
 
 import kotlinx.coroutines.flow.Flow
 import tachiyomi.data.DatabaseHandler
+import tachiyomi.data.manga.MangaMapper
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.domain.authorSubscription.model.AuthorSubscriptionOrderUpdate
+import tachiyomi.domain.authorSubscription.model.AuthorSubscriptionResultCache
 import tachiyomi.domain.authorSubscription.repository.AuthorSubscriptionRepository
+import tachiyomi.domain.manga.model.Manga
 
 class AuthorSubscriptionRepositoryImpl(
     private val handler: DatabaseHandler,
@@ -77,6 +80,116 @@ class AuthorSubscriptionRepositoryImpl(
         }
     }
 
+    override suspend fun getResultCaches(
+        subscriptionIds: Collection<Long>,
+    ): List<AuthorSubscriptionResultCache> {
+        if (subscriptionIds.isEmpty()) return emptyList()
+
+        val caches = handler.awaitList {
+            author_subscription_result_cacheQueries.selectBySubscriptionIds(subscriptionIds)
+        }
+        if (caches.isEmpty()) return emptyList()
+
+        val mangas = handler.awaitList {
+            author_subscription_result_cacheQueries.selectMangasBySubscriptionIds(
+                subscriptionIds = subscriptionIds,
+                mapper = {
+                        subscriptionId,
+                        id,
+                        source,
+                        url,
+                        artist,
+                        author,
+                        description,
+                        genre,
+                        title,
+                        status,
+                        thumbnailUrl,
+                        favorite,
+                        lastUpdate,
+                        nextUpdate,
+                        initialized,
+                        viewer,
+                        chapterFlags,
+                        coverLastModified,
+                        dateAdded,
+                        filteredScanlators,
+                        updateStrategy,
+                        calculateInterval,
+                        lastModifiedAt,
+                        favoriteModifiedAt,
+                        version,
+                        isSyncing,
+                        notes,
+                    ->
+                    CacheMangaRow(
+                        subscriptionId = subscriptionId,
+                        manga = MangaMapper.mapManga(
+                            id = id,
+                            source = source,
+                            url = url,
+                            artist = artist,
+                            author = author,
+                            description = description,
+                            genre = genre,
+                            title = title,
+                            status = status,
+                            thumbnailUrl = thumbnailUrl,
+                            favorite = favorite,
+                            lastUpdate = lastUpdate,
+                            nextUpdate = nextUpdate,
+                            initialized = initialized,
+                            viewerFlags = viewer,
+                            chapterFlags = chapterFlags,
+                            coverLastModified = coverLastModified,
+                            dateAdded = dateAdded,
+                            filteredScanlators = filteredScanlators,
+                            updateStrategy = updateStrategy,
+                            calculateInterval = calculateInterval,
+                            lastModifiedAt = lastModifiedAt,
+                            favoriteModifiedAt = favoriteModifiedAt,
+                            version = version,
+                            isSyncing = isSyncing,
+                            notes = notes,
+                        ),
+                    )
+                },
+            )
+        }
+            .groupBy { it.subscriptionId }
+
+        return caches.mapNotNull { cache ->
+            val cachedMangas = mangas[cache.subscription_id].orEmpty().map { it.manga }
+            if (cachedMangas.size != cache.result_count.toInt()) {
+                return@mapNotNull null
+            }
+
+            AuthorSubscriptionResultCache(
+                subscriptionId = cache.subscription_id,
+                mangas = cachedMangas,
+                cachedAt = cache.cached_at,
+            )
+        }
+    }
+
+    override suspend fun upsertResultCache(subscriptionId: Long, mangaIds: List<Long>, cachedAt: Long) {
+        handler.await(inTransaction = true) {
+            author_subscription_result_cacheQueries.deleteBySubscriptionId(subscriptionId)
+            author_subscription_result_cacheQueries.insert(
+                subscriptionId = subscriptionId,
+                cachedAt = cachedAt,
+                resultCount = mangaIds.size.toLong(),
+            )
+            mangaIds.forEachIndexed { index, mangaId ->
+                author_subscription_result_cacheQueries.insertManga(
+                    subscriptionId = subscriptionId,
+                    mangaId = mangaId,
+                    position = index.toLong(),
+                )
+            }
+        }
+    }
+
     override suspend fun updateOrder(updates: List<AuthorSubscriptionOrderUpdate>) {
         if (updates.isEmpty()) return
 
@@ -114,4 +227,9 @@ class AuthorSubscriptionRepositoryImpl(
     override suspend fun deleteByNormalizedQuery(normalizedQuery: String) {
         handler.await { author_subscriptionQueries.deleteByNormalizedQuery(normalizedQuery) }
     }
+
+    private data class CacheMangaRow(
+        val subscriptionId: Long,
+        val manga: Manga,
+    )
 }

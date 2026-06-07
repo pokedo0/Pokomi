@@ -5,6 +5,7 @@ import android.net.Uri
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.backup.BackupFileValidator
+import eu.kanade.tachiyomi.data.backup.create.creators.AuthorSubscriptionBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.CategoriesBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.ExtensionRepoBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.FeedBackupCreator
@@ -16,6 +17,7 @@ import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionRepos
 import eu.kanade.tachiyomi.data.backup.models.BackupFeed
+import eu.kanade.tachiyomi.data.backup.models.BackupFollowing
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSavedSearch
@@ -57,6 +59,7 @@ class BackupCreator(
     private val extensionRepoBackupCreator: ExtensionRepoBackupCreator = ExtensionRepoBackupCreator(),
     private val sourcesBackupCreator: SourcesBackupCreator = SourcesBackupCreator(),
     // KMK -->
+    private val authorSubscriptionBackupCreator: AuthorSubscriptionBackupCreator = AuthorSubscriptionBackupCreator(),
     private val feedBackupCreator: FeedBackupCreator = FeedBackupCreator(),
     // KMK <--
     // SY -->
@@ -110,6 +113,7 @@ class BackupCreator(
 
                 // KMK -->
                 backupFeeds = backupFeeds(options),
+                backupFollowing = backupFollowing(options),
                 // KMK <--
             )
 
@@ -193,6 +197,12 @@ class BackupCreator(
         if (!options.savedSearchesFeeds) return emptyList()
 
         return feedBackupCreator()
+    }
+
+    suspend fun backupFollowing(options: BackupOptions): BackupFollowing {
+        if (!options.following) return BackupFollowing()
+
+        return authorSubscriptionBackupCreator()
     }
     // KMK <--
 

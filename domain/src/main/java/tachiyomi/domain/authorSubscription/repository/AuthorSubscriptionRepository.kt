@@ -19,6 +19,8 @@ interface AuthorSubscriptionRepository {
 
     suspend fun updateLastRefreshAt(id: Long, lastRefreshAt: Long)
 
+    suspend fun replaceAll(subscriptions: List<AuthorSubscription>)
+
     suspend fun getResultCaches(subscriptionIds: Collection<Long>): List<AuthorSubscriptionResultCache>
 
     suspend fun upsertResultCache(subscriptionId: Long, mangaIds: List<Long>, cachedAt: Long)

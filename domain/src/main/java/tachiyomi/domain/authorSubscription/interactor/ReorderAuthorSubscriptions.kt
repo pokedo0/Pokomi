@@ -3,15 +3,18 @@ package tachiyomi.domain.authorSubscription.interactor
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.domain.authorSubscription.model.AuthorSubscriptionOrderUpdate
 import tachiyomi.domain.authorSubscription.repository.AuthorSubscriptionRepository
+import tachiyomi.domain.authorSubscription.service.FollowingPreferences
 
 class ReorderAuthorSubscriptions(
     private val repository: AuthorSubscriptionRepository,
+    private val preferences: FollowingPreferences,
 ) {
 
     suspend fun await(items: List<AuthorSubscription>) {
         repository.updateOrderIfChanged(
             current = items,
             updated = normalize(items),
+            onChanged = { preferences.lastModifiedAt().set(System.currentTimeMillis()) },
         )
     }
 }
@@ -116,10 +119,12 @@ internal fun List<AuthorSubscription>.toOrderUpdates(): List<AuthorSubscriptionO
 internal suspend fun AuthorSubscriptionRepository.updateOrderIfChanged(
     current: List<AuthorSubscription>,
     updated: List<AuthorSubscription>,
+    onChanged: () -> Unit = {},
 ) {
     val updates = updated.toOrderUpdates()
     if (current.toOrderUpdates() != updates) {
         updateOrder(updates)
+        onChanged()
     }
 }
 

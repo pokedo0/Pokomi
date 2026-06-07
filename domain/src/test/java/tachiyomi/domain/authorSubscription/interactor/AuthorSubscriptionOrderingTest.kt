@@ -5,10 +5,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.domain.authorSubscription.model.AuthorSubscriptionOrderUpdate
 import tachiyomi.domain.authorSubscription.model.AuthorSubscriptionResultCache
 import tachiyomi.domain.authorSubscription.repository.AuthorSubscriptionRepository
+import tachiyomi.domain.authorSubscription.service.FollowingPreferences
 
 class AuthorSubscriptionOrderingTest {
 
@@ -216,9 +218,12 @@ class AuthorSubscriptionOrderingTest {
             author(id = 2, sortOrder = 1),
         )
 
-        ReorderAuthorSubscriptions(repository).await(items)
+        val preferences = FollowingPreferences(InMemoryPreferenceStore())
+
+        ReorderAuthorSubscriptions(repository, preferences).await(items)
 
         repository.orderUpdates shouldBe emptyList()
+        preferences.lastModifiedAt().get() shouldBe 0L
     }
 
     @Test
@@ -229,9 +234,12 @@ class AuthorSubscriptionOrderingTest {
             author(id = 2, sortOrder = 1),
         )
 
-        MoveAuthorSubscriptionToTop(repository).await(id = 3, items = items)
+        val preferences = FollowingPreferences(InMemoryPreferenceStore())
+
+        MoveAuthorSubscriptionToTop(repository, preferences).await(id = 3, items = items)
 
         repository.orderUpdates shouldBe emptyList()
+        preferences.lastModifiedAt().get() shouldBe 0L
     }
 
     @Test
@@ -243,9 +251,12 @@ class AuthorSubscriptionOrderingTest {
             author(id = 3, sortOrder = 2),
         )
 
-        MoveAuthorSubscriptionToTop(repository).await(id = 1, items = items)
+        val preferences = FollowingPreferences(InMemoryPreferenceStore())
+
+        MoveAuthorSubscriptionToTop(repository, preferences).await(id = 1, items = items)
 
         repository.orderUpdates shouldBe emptyList()
+        preferences.lastModifiedAt().get() shouldBe 0L
     }
 
     @Test
@@ -257,9 +268,12 @@ class AuthorSubscriptionOrderingTest {
             author(id = 3, sortOrder = 2),
         )
 
-        MoveAuthorSubscriptionToBottom(repository).await(id = 2, items = items)
+        val preferences = FollowingPreferences(InMemoryPreferenceStore())
+
+        MoveAuthorSubscriptionToBottom(repository, preferences).await(id = 2, items = items)
 
         repository.orderUpdates shouldBe emptyList()
+        preferences.lastModifiedAt().get() shouldBe 0L
     }
 
     @Test
@@ -270,9 +284,12 @@ class AuthorSubscriptionOrderingTest {
             author(id = 2, sortOrder = 1),
         )
 
-        ToggleAuthorSubscriptionPinned(repository).await(id = 3, items = items)
+        val preferences = FollowingPreferences(InMemoryPreferenceStore())
+
+        ToggleAuthorSubscriptionPinned(repository, preferences).await(id = 3, items = items)
 
         repository.orderUpdates shouldBe emptyList()
+        preferences.lastModifiedAt().get() shouldBe 0L
     }
 
     private fun author(
@@ -309,6 +326,8 @@ class AuthorSubscriptionOrderingTest {
         override suspend fun upsert(source: Long, name: String, query: String, normalizedQuery: String): Long = 0
 
         override suspend fun updateLastRefreshAt(id: Long, lastRefreshAt: Long) = Unit
+
+        override suspend fun replaceAll(subscriptions: List<AuthorSubscription>) = Unit
 
         override suspend fun getResultCaches(
             subscriptionIds: Collection<Long>,

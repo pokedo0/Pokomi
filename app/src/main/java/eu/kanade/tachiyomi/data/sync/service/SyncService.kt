@@ -5,6 +5,8 @@ import eu.kanade.domain.sync.SyncPreferences
 import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
+import eu.kanade.tachiyomi.data.backup.models.BackupExtensionRepos
+import eu.kanade.tachiyomi.data.backup.models.BackupFeed
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSavedSearch
@@ -55,6 +57,10 @@ abstract class SyncService(
             localSyncData.backup?.backupSourcePreferences,
             remoteSyncData.backup?.backupSourcePreferences,
         )
+        val mergedExtensionRepoList = mergeExtensionRepoLists(
+            localSyncData.backup?.backupExtensionRepo,
+            remoteSyncData.backup?.backupExtensionRepo,
+        )
 
         // SY -->
         val mergedSavedSearchesList = mergeSavedSearchesLists(
@@ -63,6 +69,17 @@ abstract class SyncService(
         )
         // SY <--
 
+        // KMK -->
+        val mergedFeedsList = mergeFeedsLists(
+            localSyncData.backup?.backupFeeds,
+            remoteSyncData.backup?.backupFeeds,
+        )
+        val mergedFollowing = mergeFollowing(
+            localSyncData.backup?.backupFollowing,
+            remoteSyncData.backup?.backupFollowing,
+        )
+        // KMK <--
+
         // Create the merged Backup object
         val mergedBackup = Backup(
             backupManga = mergedMangaList,
@@ -70,10 +87,16 @@ abstract class SyncService(
             backupSources = mergedSourcesList,
             backupPreferences = mergedPreferencesList,
             backupSourcePreferences = mergedSourcePreferencesList,
+            backupExtensionRepo = mergedExtensionRepoList,
 
             // SY -->
             backupSavedSearches = mergedSavedSearchesList,
             // SY <--
+
+            // KMK -->
+            backupFeeds = mergedFeedsList,
+            backupFollowing = mergedFollowing,
+            // KMK <--
         )
 
         // Create the merged SData object
@@ -465,6 +488,13 @@ abstract class SyncService(
         return mergedPrefsMap.values.toList()
     }
 
+    private fun mergeExtensionRepoLists(
+        localRepos: List<BackupExtensionRepos>?,
+        remoteRepos: List<BackupExtensionRepos>?,
+    ): List<BackupExtensionRepos> {
+        return (localRepos.orEmpty() + remoteRepos.orEmpty()).distinctBy { it.baseUrl }
+    }
+
     // SY -->
     private fun mergeSavedSearchesLists(
         localSearches: List<BackupSavedSearch>?,
@@ -522,4 +552,21 @@ abstract class SyncService(
         return mergedSearches
     }
     // SY <--
+
+    // KMK -->
+    private fun mergeFeedsLists(
+        localFeeds: List<BackupFeed>?,
+        remoteFeeds: List<BackupFeed>?,
+    ): List<BackupFeed> {
+        return (localFeeds.orEmpty() + remoteFeeds.orEmpty()).distinctBy { feed ->
+            val savedSearch = feed.savedSearch
+            if (savedSearch != null) {
+                "${feed.source}|${feed.global}|${savedSearch.source}|${savedSearch.name}|" +
+                    "${savedSearch.query}|${savedSearch.filterList}"
+            } else {
+                "${feed.source}|${feed.global}|"
+            }
+        }
+    }
+    // KMK <--
 }

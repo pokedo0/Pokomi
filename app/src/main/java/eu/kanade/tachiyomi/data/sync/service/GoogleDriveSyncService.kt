@@ -83,8 +83,9 @@ class GoogleDriveSyncService(context: Context, json: Json, syncPreferences: Sync
 
                 // check if the last sync was done by the same device if so overwrite the remote data with the local data
                 return if (lastSyncDeviceId == localDeviceId) {
-                    pushSyncData(syncData)
-                    syncData.backup
+                    val finalSyncData = preserveRemoteFollowingWhenDisabled(syncData, remoteSData)
+                    pushSyncData(finalSyncData)
+                    finalSyncData.backup
                 } else {
                     // Merge the local and remote sync data
                     val mergedSyncData = mergeSyncData(syncData, remoteSData)
@@ -100,6 +101,21 @@ class GoogleDriveSyncService(context: Context, json: Json, syncPreferences: Sync
             return null
         }
     }
+
+    // KMK -->
+    private fun preserveRemoteFollowingWhenDisabled(localSyncData: SyncData, remoteSyncData: SyncData): SyncData {
+        if (syncPreferences.getSyncSettings().following) return localSyncData
+
+        val localBackup = localSyncData.backup ?: return localSyncData
+        val remoteFollowing = remoteSyncData.backup?.backupFollowing ?: return localSyncData
+
+        return localSyncData.copy(
+            backup = localBackup.copy(
+                backupFollowing = remoteFollowing,
+            ),
+        )
+    }
+    // KMK <--
 
     private suspend fun beforeSync() {
         googleDriveService.refreshToken()

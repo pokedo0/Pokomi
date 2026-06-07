@@ -93,6 +93,8 @@ class AuthorSubscriptionResultCacheTest {
 
         override suspend fun updateLastRefreshAt(id: Long, lastRefreshAt: Long) = Unit
 
+        override suspend fun replaceAll(subscriptions: List<AuthorSubscription>) = Unit
+
         override suspend fun getResultCaches(
             subscriptionIds: Collection<Long>,
         ): List<AuthorSubscriptionResultCache> {

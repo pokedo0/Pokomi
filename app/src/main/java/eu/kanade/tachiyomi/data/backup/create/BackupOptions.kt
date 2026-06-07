@@ -21,6 +21,9 @@ data class BackupOptions(
     val customInfo: Boolean = true,
     val savedSearchesFeeds: Boolean = true,
     // SY <--
+    // KMK -->
+    val following: Boolean = true,
+    // KMK <--
 ) {
 
     fun asBooleanArray() = booleanArrayOf(
@@ -38,10 +41,14 @@ data class BackupOptions(
         customInfo,
         savedSearchesFeeds,
         // SY <--
+        // KMK -->
+        following,
+        // KMK <--
     )
 
     fun canCreate() =
-        libraryEntries || categories || appSettings || extensionRepoSettings || sourceSettings || savedSearchesFeeds
+        libraryEntries || categories || appSettings || extensionRepoSettings || sourceSettings ||
+            savedSearchesFeeds /* KMK --> */ || following /* KMK <-- */
 
     companion object {
         val libraryOptions = persistentListOf(
@@ -94,6 +101,13 @@ data class BackupOptions(
                 setter = { options, enabled -> options.copy(savedSearchesFeeds = enabled) },
             ),
             // SY <--
+            // KMK -->
+            Entry(
+                label = KMR.strings.following,
+                getter = BackupOptions::following,
+                setter = { options, enabled -> options.copy(following = enabled) },
+            ),
+            // KMK <--
         )
 
         val settingsOptions = persistentListOf(
@@ -120,22 +134,28 @@ data class BackupOptions(
             ),
         )
 
-        fun fromBooleanArray(array: BooleanArray) = BackupOptions(
-            libraryEntries = array[0],
-            categories = array[1],
-            chapters = array[2],
-            tracking = array[3],
-            history = array[4],
-            readEntries = array[5],
-            appSettings = array[6],
-            extensionRepoSettings = array[7],
-            sourceSettings = array[8],
-            privateSettings = array[9],
-            // SY -->
-            customInfo = array[10],
-            savedSearchesFeeds = array[11],
-            // SY <--
-        )
+        fun fromBooleanArray(array: BooleanArray): BackupOptions {
+            val default = BackupOptions()
+            return BackupOptions(
+                libraryEntries = array.getOrElse(0) { default.libraryEntries },
+                categories = array.getOrElse(1) { default.categories },
+                chapters = array.getOrElse(2) { default.chapters },
+                tracking = array.getOrElse(3) { default.tracking },
+                history = array.getOrElse(4) { default.history },
+                readEntries = array.getOrElse(5) { default.readEntries },
+                appSettings = array.getOrElse(6) { default.appSettings },
+                extensionRepoSettings = array.getOrElse(7) { default.extensionRepoSettings },
+                sourceSettings = array.getOrElse(8) { default.sourceSettings },
+                privateSettings = array.getOrElse(9) { default.privateSettings },
+                // SY -->
+                customInfo = array.getOrElse(10) { default.customInfo },
+                savedSearchesFeeds = array.getOrElse(11) { default.savedSearchesFeeds },
+                // SY <--
+                // KMK -->
+                following = array.getOrElse(12) { default.following },
+                // KMK <--
+            )
+        }
     }
 
     data class Entry(

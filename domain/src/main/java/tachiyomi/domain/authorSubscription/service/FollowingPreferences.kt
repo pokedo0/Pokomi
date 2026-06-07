@@ -1,5 +1,6 @@
 package tachiyomi.domain.authorSubscription.service
 
+import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 
 class FollowingPreferences(
@@ -14,5 +15,10 @@ class FollowingPreferences(
     fun cacheTtlHours() = preferenceStore.getString(
         "pref_following_cache_ttl_hours",
         "24",
+    )
+
+    fun lastModifiedAt() = preferenceStore.getLong(
+        Preference.appStateKey("pref_following_last_modified_at"),
+        0,
     )
 }

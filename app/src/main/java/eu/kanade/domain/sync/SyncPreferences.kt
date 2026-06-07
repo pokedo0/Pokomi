@@ -65,6 +65,10 @@ class SyncPreferences(
             sourceSettings = preferenceStore.getBoolean("sourceSettings", true).get(),
             privateSettings = preferenceStore.getBoolean("privateSettings", true).get(),
 
+            // KMK -->
+            following = preferenceStore.getBoolean("following", true).get(),
+            // KMK <--
+
             // SY -->
             customInfo = preferenceStore.getBoolean("customInfo", true).get(),
             readEntries = preferenceStore.getBoolean("readEntries", true).get(),
@@ -83,6 +87,10 @@ class SyncPreferences(
         preferenceStore.getBoolean("extensionRepoSettings", true).set(syncSettings.extensionRepoSettings)
         preferenceStore.getBoolean("sourceSettings", true).set(syncSettings.sourceSettings)
         preferenceStore.getBoolean("privateSettings", true).set(syncSettings.privateSettings)
+
+        // KMK -->
+        preferenceStore.getBoolean("following", true).set(syncSettings.following)
+        // KMK <--
 
         // SY -->
         preferenceStore.getBoolean("customInfo", true).set(syncSettings.customInfo)

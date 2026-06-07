@@ -17,5 +17,6 @@ data class Backup(
     // KMK -->
     // Global Popular/Latest feeds
     @ProtoNumber(610) var backupFeeds: List<BackupFeed> = emptyList(),
+    @ProtoNumber(611) var backupFollowing: BackupFollowing = BackupFollowing(),
     // KMK <--
 )

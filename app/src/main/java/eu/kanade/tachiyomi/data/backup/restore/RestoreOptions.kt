@@ -14,6 +14,9 @@ data class RestoreOptions(
     // SY -->
     val savedSearchesFeeds: Boolean = true,
     // SY <--
+    // KMK -->
+    val following: Boolean = true,
+    // KMK <--
 ) {
 
     fun asBooleanArray() = booleanArrayOf(
@@ -25,6 +28,9 @@ data class RestoreOptions(
         // SY -->
         savedSearchesFeeds,
         // SY <--
+        // KMK -->
+        following,
+        // KMK <--
     )
 
     fun canRestore() =
@@ -33,7 +39,8 @@ data class RestoreOptions(
             appSettings ||
             extensionRepoSettings ||
             sourceSettings /* SY --> */ ||
-            savedSearchesFeeds /* SY <-- */
+            savedSearchesFeeds /* SY <-- */ /* KMK --> */ ||
+            following /* KMK <-- */
 
     companion object {
         val options = persistentListOf(
@@ -71,18 +78,31 @@ data class RestoreOptions(
                 setter = { options, enabled -> options.copy(savedSearchesFeeds = enabled) },
             ),
             // SY <--
+            // KMK -->
+            Entry(
+                label = KMR.strings.following,
+                getter = RestoreOptions::following,
+                setter = { options, enabled -> options.copy(following = enabled) },
+            ),
+            // KMK <--
         )
 
-        fun fromBooleanArray(array: BooleanArray) = RestoreOptions(
-            libraryEntries = array[0],
-            categories = array[1],
-            appSettings = array[2],
-            extensionRepoSettings = array[3],
-            sourceSettings = array[4],
-            // SY -->
-            savedSearchesFeeds = array[5],
-            // SY <--
-        )
+        fun fromBooleanArray(array: BooleanArray): RestoreOptions {
+            val default = RestoreOptions()
+            return RestoreOptions(
+                libraryEntries = array.getOrElse(0) { default.libraryEntries },
+                categories = array.getOrElse(1) { default.categories },
+                appSettings = array.getOrElse(2) { default.appSettings },
+                extensionRepoSettings = array.getOrElse(3) { default.extensionRepoSettings },
+                sourceSettings = array.getOrElse(4) { default.sourceSettings },
+                // SY -->
+                savedSearchesFeeds = array.getOrElse(5) { default.savedSearchesFeeds },
+                // SY <--
+                // KMK -->
+                following = array.getOrElse(6) { default.following },
+                // KMK <--
+            )
+        }
     }
 
     data class Entry(

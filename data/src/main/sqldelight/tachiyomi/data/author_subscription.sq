@@ -51,6 +51,30 @@ VALUES (
     (SELECT COALESCE(MAX(sort_order) + 1, 0) FROM author_subscription)
 );
 
+insertFull:
+INSERT INTO author_subscription(
+    source,
+    name,
+    query,
+    normalized_query,
+    created_at,
+    updated_at,
+    last_refresh_at,
+    sort_order,
+    pinned
+)
+VALUES (
+    :source,
+    :name,
+    :query,
+    :normalizedQuery,
+    :createdAt,
+    :updatedAt,
+    :lastRefreshAt,
+    :sortOrder,
+    :pinned
+);
+
 updateSource:
 UPDATE author_subscription
 SET
@@ -89,6 +113,9 @@ WHERE _id = :id;
 deleteByNormalizedQuery:
 DELETE FROM author_subscription
 WHERE normalized_query = :normalizedQuery;
+
+deleteAll:
+DELETE FROM author_subscription;
 
 selectLastInsertedRowId:
 SELECT last_insert_rowid();

@@ -37,14 +37,14 @@ class KMKDomainModule : InjektModule {
         addSingletonFactory<AuthorSubscriptionRepository> { AuthorSubscriptionRepositoryImpl(get()) }
         addFactory { GetAuthorSubscriptions(get()) }
         addFactory { GetAuthorSubscriptionResultCache(get()) }
-        addFactory { UpsertAuthorSubscription(get()) }
+        addFactory { UpsertAuthorSubscription(get(), get()) }
         addFactory { UpsertAuthorSubscriptionResultCache(get()) }
-        addFactory { DeleteAuthorSubscription(get()) }
+        addFactory { DeleteAuthorSubscription(get(), get()) }
         addFactory { UpdateAuthorSubscriptionRefreshTime(get()) }
-        addFactory { ReorderAuthorSubscriptions(get()) }
-        addFactory { MoveAuthorSubscriptionToTop(get()) }
-        addFactory { MoveAuthorSubscriptionToBottom(get()) }
-        addFactory { ToggleAuthorSubscriptionPinned(get()) }
+        addFactory { ReorderAuthorSubscriptions(get(), get()) }
+        addFactory { MoveAuthorSubscriptionToTop(get(), get()) }
+        addFactory { MoveAuthorSubscriptionToBottom(get(), get()) }
+        addFactory { ToggleAuthorSubscriptionPinned(get(), get()) }
 
         addSingletonFactory<LibraryUpdateErrorWithRelationsRepository> {
             LibraryUpdateErrorWithRelationsRepositoryImpl(get())

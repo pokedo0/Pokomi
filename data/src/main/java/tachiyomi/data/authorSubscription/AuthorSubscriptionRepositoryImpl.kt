@@ -80,6 +80,25 @@ class AuthorSubscriptionRepositoryImpl(
         }
     }
 
+    override suspend fun replaceAll(subscriptions: List<AuthorSubscription>) {
+        handler.await(inTransaction = true) {
+            author_subscriptionQueries.deleteAll()
+            subscriptions.forEach { subscription ->
+                author_subscriptionQueries.insertFull(
+                    source = subscription.source,
+                    name = subscription.name,
+                    query = subscription.query,
+                    normalizedQuery = subscription.normalizedQuery,
+                    createdAt = subscription.createdAt,
+                    updatedAt = subscription.updatedAt,
+                    lastRefreshAt = subscription.lastRefreshAt,
+                    sortOrder = subscription.sortOrder,
+                    pinned = subscription.pinned.toLong(),
+                )
+            }
+        }
+    }
+
     override suspend fun getResultCaches(
         subscriptionIds: Collection<Long>,
     ): List<AuthorSubscriptionResultCache> {

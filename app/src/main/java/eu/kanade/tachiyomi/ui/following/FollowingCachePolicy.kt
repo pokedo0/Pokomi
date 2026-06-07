@@ -8,7 +8,7 @@ internal data class FollowingCachePolicy(
 
     fun shouldRefresh(lastRefreshAt: Long?, hasSuccess: Boolean, force: Boolean, now: Long): Boolean {
         if (force) return true
-        if (ttlHours == 0) return true
+        if (ttlHours == 0 && hasSuccess) return false
         val last = lastRefreshAt ?: return true
         val ttlMs = ttlHours * 3600_000L
         return when {

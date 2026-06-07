@@ -5,12 +5,17 @@ internal class FollowingSourceRateLimitController(
 ) {
 
     private val rateLimits = mutableMapOf<Long, SourceRateLimitState>()
+    private var nextGeneration = 1L
 
     @Synchronized
     fun open(sourceId: Long, subscriptionIds: Collection<Long>): FollowingSourceRateLimit {
         val state = rateLimits.getOrPut(sourceId) {
             SourceRateLimitState(
-                rateLimit = FollowingSourceRateLimit(attempt = 1, max = maxAttempts),
+                rateLimit = FollowingSourceRateLimit(
+                    attempt = 1,
+                    max = maxAttempts,
+                    generation = nextGeneration++,
+                ),
             )
         }
         state.pendingSubscriptionIds += subscriptionIds
@@ -43,8 +48,10 @@ internal class FollowingSourceRateLimitController(
     }
 
     @Synchronized
-    fun advanceAfterFailedRetry(sourceId: Long): FollowingSourceRateLimit? {
+    fun advanceAfterFailedRetry(sourceId: Long, generation: Long): FollowingSourceRateLimit? {
         val state = rateLimits[sourceId] ?: return null
+        if (state.rateLimit.generation != generation) return null
+
         val nextAttempt = state.rateLimit.attempt + 1
         if (nextAttempt > maxAttempts) return null
 
@@ -54,8 +61,12 @@ internal class FollowingSourceRateLimitController(
     }
 
     @Synchronized
-    fun recover(sourceId: Long, completedSubscriptionId: Long): List<Long> {
+    fun recover(sourceId: Long, completedSubscriptionId: Long, generation: Long): List<Long>? {
         val state = rateLimits.remove(sourceId) ?: return emptyList()
+        if (state.rateLimit.generation != generation) {
+            rateLimits[sourceId] = state
+            return null
+        }
         state.pendingSubscriptionIds -= completedSubscriptionId
         return state.pendingSubscriptionIds.toList()
     }

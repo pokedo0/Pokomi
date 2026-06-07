@@ -61,7 +61,7 @@ internal class FollowingSourceRateLimitController(
     }
 
     @Synchronized
-    fun recover(sourceId: Long, completedSubscriptionId: Long, generation: Long): List<Long>? {
+    fun consumeRecoveredPending(sourceId: Long, completedSubscriptionId: Long, generation: Long): List<Long>? {
         val state = rateLimits.remove(sourceId) ?: return emptyList()
         if (state.rateLimit.generation != generation) {
             rateLimits[sourceId] = state

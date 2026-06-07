@@ -602,7 +602,8 @@ class FollowingScreenModel(
                         }
                         completeSubscriptionLoad(retrySubscription, retryResult.titles)
                         if (sourceRateLimitController.current(sourceId)?.generation == rateLimit.generation) {
-                            recoverSourceRateLimit(sourceId, retrySubscription.id, rateLimit.generation)
+                            val pendingSubscriptionIds = recoverSourceRateLimit(sourceId, retrySubscription.id, rateLimit.generation)
+                            drainRecoveredSourceSerially(sourceId, pendingSubscriptionIds)
                         }
                         return@launchIO
                     }
@@ -613,7 +614,8 @@ class FollowingScreenModel(
                         }
                         updateRefreshFailure(retrySubscription.id, FollowingItemResult.Error(retryResult.throwable))
                         if (sourceRateLimitController.current(sourceId)?.generation == rateLimit.generation) {
-                            recoverSourceRateLimit(sourceId, retrySubscription.id, rateLimit.generation)
+                            val pendingSubscriptionIds = recoverSourceRateLimit(sourceId, retrySubscription.id, rateLimit.generation)
+                            drainRecoveredSourceSerially(sourceId, pendingSubscriptionIds)
                         }
                         return@launchIO
                     }
@@ -695,20 +697,91 @@ class FollowingScreenModel(
         return activeIds + subscriptionIds
     }
 
-    private fun recoverSourceRateLimit(sourceId: Long, completedSubscriptionId: Long, generation: Long) {
-        val pendingSubscriptionIds = sourceRateLimitController.recover(sourceId, completedSubscriptionId, generation)
+    private suspend fun drainRecoveredSourceSerially(sourceId: Long, subscriptionIds: List<Long>) {
+        if (subscriptionIds.isEmpty()) {
+            trace { "serial recovery skipped source=$sourceId no pending subscriptions" }
+            return
+        }
+        trace {
+            "serial recovery started source=$sourceId pending=${subscriptionIds.followingTracePreview()}"
+        }
+
+        subscriptionIds.forEachIndexed { index, subscriptionId ->
+            val subscription = state.value.subscriptions.firstOrNull { it.id == subscriptionId }
+            if (subscription == null) {
+                trace { "serial recovery skip missing subscription source=$sourceId subscription=$subscriptionId" }
+                return@forEachIndexed
+            }
+            if (subscription.source != sourceId) {
+                trace {
+                    "serial recovery skip source mismatch source=$sourceId subscription=$subscriptionId " +
+                        "actualSource=${subscription.source}"
+                }
+                return@forEachIndexed
+            }
+
+            if (index > 0) {
+                delay(SOURCE_RECOVERY_SERIAL_DELAY_MS)
+            }
+
+            trace {
+                "serial recovery probing source=$sourceId subscription=$subscriptionId " +
+                    "index=${index + 1}/${subscriptionIds.size}"
+            }
+            when (val result = probeOne(subscription)) {
+                is SourceRetryProbeResult.Success -> {
+                    trace {
+                        "serial recovery success source=$sourceId subscription=$subscriptionId " +
+                            "titles=${result.titles.size}"
+                    }
+                    completeSubscriptionLoad(subscription, result.titles)
+                }
+                is SourceRetryProbeResult.Error -> {
+                    trace {
+                        "serial recovery error source=$sourceId subscription=$subscriptionId " +
+                            "type=${result.throwable::class.simpleName}"
+                    }
+                    updateRefreshFailure(subscriptionId, FollowingItemResult.Error(result.throwable))
+                }
+                SourceRetryProbeResult.RateLimited -> {
+                    val remainingIds = subscriptionIds.drop(index)
+                    val rateLimit = sourceRateLimitController.open(sourceId, remainingIds)
+                    trace {
+                        "serial recovery 429 source=$sourceId subscription=$subscriptionId " +
+                            "remaining=${remainingIds.followingTracePreview()} " +
+                            "attempt=${rateLimit.attempt}/${rateLimit.max} generation=${rateLimit.generation}"
+                    }
+                    updateRateLimitedSource(
+                        sourceId = sourceId,
+                        subscriptionIds = remainingIds,
+                        rateLimit = rateLimit,
+                    )
+                    startSourceRetry(sourceId)
+                    return
+                }
+            }
+        }
+
+        trace {
+            "serial recovery completed source=$sourceId state=${state.value.results.followingTraceSummary()}"
+        }
+    }
+
+    private fun recoverSourceRateLimit(sourceId: Long, completedSubscriptionId: Long, generation: Long): List<Long> {
+        val pendingSubscriptionIds = sourceRateLimitController.consumeRecoveredPending(sourceId, completedSubscriptionId, generation)
             ?: run {
                 trace {
                     "recover ignored stale source=$sourceId completed=$completedSubscriptionId generation=$generation " +
                         "current=${sourceRateLimitController.current(sourceId)?.generation}"
                 }
-                return
+                return emptyList()
             }
         trace {
             "recover source=$sourceId completed=$completedSubscriptionId generation=$generation " +
                 "pending=${pendingSubscriptionIds.followingTracePreview()}"
         }
-        clearSourceRateLimit(sourceId, pendingSubscriptionIds)
+        clearSourceRateLimit(sourceId)
+        return pendingSubscriptionIds
     }
 
     private fun clearSourceRateLimit(sourceId: Long, stalledSubscriptionIds: List<Long> = emptyList()) {
@@ -757,6 +830,7 @@ class FollowingScreenModel(
         private const val MAX_CONCURRENT_REQUESTS = 5
         private const val SOURCE_RATE_LIMIT_MAX_ATTEMPTS = 6
         private const val SOURCE_RATE_LIMIT_RETRY_TIMEOUT_MS = 30_000L
+        private const val SOURCE_RECOVERY_SERIAL_DELAY_MS = 1_000L
         private val SOURCE_RATE_LIMIT_BACKOFF_SECONDS = longArrayOf(10, 20, 30, 45, 60, 90)
     }
 }

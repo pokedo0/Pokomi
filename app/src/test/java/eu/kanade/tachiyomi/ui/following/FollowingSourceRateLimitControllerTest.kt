@@ -30,12 +30,12 @@ class FollowingSourceRateLimitControllerTest {
     }
 
     @Test
-    fun `recover clears source queue and returns pending subscriptions except completed one`() {
+    fun `recover consumes source queue and returns pending subscriptions except completed one`() {
         val controller = FollowingSourceRateLimitController(maxAttempts = 6)
 
         val rateLimit = controller.open(sourceId = 1, subscriptionIds = listOf(10, 20, 30))
 
-        controller.recover(
+        controller.consumeRecoveredPending(
             sourceId = 1,
             completedSubscriptionId = 20,
             generation = rateLimit.generation,
@@ -68,7 +68,7 @@ class FollowingSourceRateLimitControllerTest {
         controller.close(sourceId = 1)
         val newRateLimit = controller.open(sourceId = 1, subscriptionIds = listOf(20, 30))
 
-        controller.recover(sourceId = 1, completedSubscriptionId = 10, generation = oldRateLimit.generation) shouldBe null
+        controller.consumeRecoveredPending(sourceId = 1, completedSubscriptionId = 10, generation = oldRateLimit.generation) shouldBe null
         controller.current(sourceId = 1) shouldBe newRateLimit
         controller.pendingSubscriptionIds(sourceId = 1) shouldContainExactly listOf(20L, 30L)
     }

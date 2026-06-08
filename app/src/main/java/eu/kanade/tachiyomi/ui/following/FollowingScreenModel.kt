@@ -39,6 +39,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.util.Collections
 import java.util.concurrent.Executors
 import kotlin.coroutines.CoroutineContext
 import androidx.compose.runtime.State as ComposeState
@@ -59,6 +60,7 @@ class FollowingScreenModel(
     private val semaphore = Semaphore(MAX_CONCURRENT_REQUESTS)
     private val sourceRateLimitController = FollowingSourceRateLimitController(maxAttempts = SOURCE_RATE_LIMIT_MAX_ATTEMPTS)
     private var loadedSubscriptionLoadKeys: List<FollowingSubscriptionLoadKey>? = null
+    private val serialRecoveringSourceIds = Collections.synchronizedSet(mutableSetOf<Long>())
 
     init {
         screenModelScope.launchIO {
@@ -227,10 +229,14 @@ class FollowingScreenModel(
             }
             val subscriptions = subscriptionsWithCache
                 .filter { decideLoad(it, force, cachePolicy) == LoadDecision.Refresh }
+                .filterNot { subscription ->
+                    !force && reason == "visible" && isSerialRecoveringSource(subscription.source)
+                }
             trace {
                 "load evaluated reason=$reason requested=${subscriptionIds.size} matched=${subscriptionsById.size} " +
                     "refreshing=${subscriptions.size} skipped=${subscriptionsWithCache.size - subscriptions.size} " +
-                    "refreshIds=${subscriptions.map { it.id }.followingTracePreview()}"
+                    "refreshIds=${subscriptions.map { it.id }.followingTracePreview()} " +
+                    "serialRecoveringSources=${serialRecoveringSourceIdsSnapshot().followingTracePreview()}"
             }
 
             if (subscriptions.isEmpty()) {
@@ -705,65 +711,98 @@ class FollowingScreenModel(
         trace {
             "serial recovery started source=$sourceId pending=${subscriptionIds.followingTracePreview()}"
         }
+        markSourceSerialRecovering(sourceId)
 
-        subscriptionIds.forEachIndexed { index, subscriptionId ->
-            val subscription = state.value.subscriptions.firstOrNull { it.id == subscriptionId }
-            if (subscription == null) {
-                trace { "serial recovery skip missing subscription source=$sourceId subscription=$subscriptionId" }
-                return@forEachIndexed
-            }
-            if (subscription.source != sourceId) {
+        try {
+            subscriptionIds.forEachIndexed { index, subscriptionId ->
+                val subscription = state.value.subscriptions.firstOrNull { it.id == subscriptionId }
+                if (subscription == null) {
+                    trace { "serial recovery skip missing subscription source=$sourceId subscription=$subscriptionId" }
+                    return@forEachIndexed
+                }
+                if (subscription.source != sourceId) {
+                    trace {
+                        "serial recovery skip source mismatch source=$sourceId subscription=$subscriptionId " +
+                            "actualSource=${subscription.source}"
+                    }
+                    return@forEachIndexed
+                }
+                val currentResult = state.value.results[subscriptionId]
+                if (!shouldSerialRecoveryProbe(currentResult)) {
+                    trace {
+                        "serial recovery skip completed source=$sourceId subscription=$subscriptionId " +
+                            "current=${currentResult.followingTraceLabel()}"
+                    }
+                    return@forEachIndexed
+                }
+
                 trace {
-                    "serial recovery skip source mismatch source=$sourceId subscription=$subscriptionId " +
-                        "actualSource=${subscription.source}"
+                    "serial recovery probing source=$sourceId subscription=$subscriptionId " +
+                        "index=${index + 1}/${subscriptionIds.size}"
                 }
-                return@forEachIndexed
-            }
-
-            if (index > 0) {
-                delay(SOURCE_RECOVERY_SERIAL_DELAY_MS)
-            }
-
-            trace {
-                "serial recovery probing source=$sourceId subscription=$subscriptionId " +
-                    "index=${index + 1}/${subscriptionIds.size}"
-            }
-            when (val result = probeOne(subscription)) {
-                is SourceRetryProbeResult.Success -> {
-                    trace {
-                        "serial recovery success source=$sourceId subscription=$subscriptionId " +
-                            "titles=${result.titles.size}"
+                when (val result = probeOne(subscription)) {
+                    is SourceRetryProbeResult.Success -> {
+                        trace {
+                            "serial recovery success source=$sourceId subscription=$subscriptionId " +
+                                "titles=${result.titles.size}"
+                        }
+                        completeSubscriptionLoad(subscription, result.titles)
                     }
-                    completeSubscriptionLoad(subscription, result.titles)
-                }
-                is SourceRetryProbeResult.Error -> {
-                    trace {
-                        "serial recovery error source=$sourceId subscription=$subscriptionId " +
-                            "type=${result.throwable::class.simpleName}"
+                    is SourceRetryProbeResult.Error -> {
+                        trace {
+                            "serial recovery error source=$sourceId subscription=$subscriptionId " +
+                                "type=${result.throwable::class.simpleName}"
+                        }
+                        updateRefreshFailure(subscriptionId, FollowingItemResult.Error(result.throwable))
                     }
-                    updateRefreshFailure(subscriptionId, FollowingItemResult.Error(result.throwable))
-                }
-                SourceRetryProbeResult.RateLimited -> {
-                    val remainingIds = subscriptionIds.drop(index)
-                    val rateLimit = sourceRateLimitController.open(sourceId, remainingIds)
-                    trace {
-                        "serial recovery 429 source=$sourceId subscription=$subscriptionId " +
-                            "remaining=${remainingIds.followingTracePreview()} " +
-                            "attempt=${rateLimit.attempt}/${rateLimit.max} generation=${rateLimit.generation}"
+                    SourceRetryProbeResult.RateLimited -> {
+                        val remainingIds = subscriptionIds.drop(index)
+                        val rateLimit = sourceRateLimitController.open(sourceId, remainingIds)
+                        trace {
+                            "serial recovery 429 source=$sourceId subscription=$subscriptionId " +
+                                "remaining=${remainingIds.followingTracePreview()} " +
+                                "attempt=${rateLimit.attempt}/${rateLimit.max} generation=${rateLimit.generation}"
+                        }
+                        updateRateLimitedSource(
+                            sourceId = sourceId,
+                            subscriptionIds = remainingIds,
+                            rateLimit = rateLimit,
+                        )
+                        startSourceRetry(sourceId)
+                        return
                     }
-                    updateRateLimitedSource(
-                        sourceId = sourceId,
-                        subscriptionIds = remainingIds,
-                        rateLimit = rateLimit,
-                    )
-                    startSourceRetry(sourceId)
-                    return
                 }
             }
+        } finally {
+            unmarkSourceSerialRecovering(sourceId)
         }
 
         trace {
             "serial recovery completed source=$sourceId state=${state.value.results.followingTraceSummary()}"
+        }
+    }
+
+    private fun isSerialRecoveringSource(sourceId: Long): Boolean {
+        return synchronized(serialRecoveringSourceIds) {
+            sourceId in serialRecoveringSourceIds
+        }
+    }
+
+    private fun markSourceSerialRecovering(sourceId: Long) {
+        synchronized(serialRecoveringSourceIds) {
+            serialRecoveringSourceIds += sourceId
+        }
+    }
+
+    private fun unmarkSourceSerialRecovering(sourceId: Long) {
+        synchronized(serialRecoveringSourceIds) {
+            serialRecoveringSourceIds -= sourceId
+        }
+    }
+
+    private fun serialRecoveringSourceIdsSnapshot(): Set<Long> {
+        return synchronized(serialRecoveringSourceIds) {
+            serialRecoveringSourceIds.toSet()
         }
     }
 
@@ -830,7 +869,6 @@ class FollowingScreenModel(
         private const val MAX_CONCURRENT_REQUESTS = 5
         private const val SOURCE_RATE_LIMIT_MAX_ATTEMPTS = 6
         private const val SOURCE_RATE_LIMIT_RETRY_TIMEOUT_MS = 30_000L
-        private const val SOURCE_RECOVERY_SERIAL_DELAY_MS = 1_000L
         private val SOURCE_RATE_LIMIT_BACKOFF_SECONDS = longArrayOf(10, 20, 30, 45, 60, 90)
     }
 }
@@ -861,6 +899,13 @@ private sealed interface SourceRetryProbeResult {
     data class Error(val throwable: Throwable) : SourceRetryProbeResult
 
     data object RateLimited : SourceRetryProbeResult
+}
+
+internal fun shouldSerialRecoveryProbe(result: FollowingItemResult?): Boolean {
+    return when (result) {
+        is FollowingItemResult.Success -> result.refreshing
+        else -> true
+    }
 }
 
 private fun FollowingItemResult?.followingTraceLabel(): String {

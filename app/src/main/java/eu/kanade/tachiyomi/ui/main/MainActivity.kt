@@ -58,6 +58,7 @@ import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.sync.SyncPreferences
 import eu.kanade.presentation.components.AppStateBanners
 import eu.kanade.presentation.components.DownloadedOnlyBannerBackgroundColor
+import eu.kanade.presentation.components.FollowingBannerBackgroundColor
 import eu.kanade.presentation.components.IncognitoModeBannerBackgroundColor
 import eu.kanade.presentation.components.IndexingBannerBackgroundColor
 import eu.kanade.presentation.components.RestoringBannerBackgroundColor
@@ -89,6 +90,7 @@ import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.browse.source.feed.SourceFeedScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.deeplink.DeepLinkScreen
+import eu.kanade.tachiyomi.ui.following.FollowingLoadingStatus
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.more.NewUpdateScreen
@@ -151,6 +153,7 @@ class MainActivity : BaseActivity() {
     private val backupRestoreStatus: BackupRestoreStatus by injectLazy()
     private val syncStatus: SyncStatus by injectLazy()
     private val libraryUpdateStatus: LibraryUpdateStatus by injectLazy()
+    private val followingLoadingStatus: FollowingLoadingStatus by injectLazy()
     // KMK <--
 
     private val downloadCache: DownloadCache by injectLazy()
@@ -236,6 +239,7 @@ class MainActivity : BaseActivity() {
             val restoringProgress by backupRestoreStatus.progress.collectAsState()
             val syncingProgress by syncStatus.progress.collectAsState()
             val updatingProgress by libraryUpdateStatus.progress.collectAsState()
+            val followingLoadingState by followingLoadingStatus.state.collectAsState()
             // KMK <--
 
             val isSystemInDarkTheme = isSystemInDarkTheme()
@@ -244,6 +248,7 @@ class MainActivity : BaseActivity() {
                 updating -> UpdatingBannerBackgroundColor
                 syncing -> SyncingBannerBackgroundColor
                 restoring -> RestoringBannerBackgroundColor
+                followingLoadingState.running -> FollowingBannerBackgroundColor
                 // KMK <--
                 indexing -> IndexingBannerBackgroundColor
                 downloadOnly -> DownloadedOnlyBannerBackgroundColor
@@ -311,9 +316,13 @@ class MainActivity : BaseActivity() {
                             restoring = restoring,
                             syncing = syncing,
                             updating = updating,
+                            followingLoading = followingLoadingState.running,
                             progress = updatingProgress.takeIf { updating }
                                 ?: syncingProgress.takeIf { syncing }
-                                ?: restoringProgress.takeIf { restoring },
+                                ?: restoringProgress.takeIf { restoring }
+                                ?: followingLoadingState.progress.takeIf { followingLoadingState.running },
+                            followingLoadedAuthors = followingLoadingState.successful,
+                            followingTotalAuthors = followingLoadingState.total,
                             // KMK <--
                             modifier = Modifier.windowInsetsPadding(scaffoldInsets),
                         )

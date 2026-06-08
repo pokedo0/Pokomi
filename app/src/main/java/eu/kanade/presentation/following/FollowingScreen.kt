@@ -71,11 +71,6 @@ fun FollowingScreen(
     onRankAnchorShown: (Long) -> Unit,
     onHighlightConsumed: (Long) -> Unit,
 ) {
-    val isRefreshing = results.values.any {
-        it is FollowingItemResult.Loading ||
-            it is FollowingItemResult.RateLimited ||
-            (it is FollowingItemResult.Success && it.refreshing)
-    }
     var collapsedIds by rememberSaveable { mutableStateOf(emptyList<Long>()) }
     val collapsedIdSet = remember(collapsedIds) { collapsedIds.toSet() }
     val lazyListState = rememberLazyListState()
@@ -137,7 +132,7 @@ fun FollowingScreen(
         },
     ) { paddingValues ->
         PullRefresh(
-            refreshing = isRefreshing,
+            refreshing = false,
             enabled = subscriptions.isNotEmpty(),
             onRefresh = onPullRefresh,
             indicatorPadding = paddingValues,

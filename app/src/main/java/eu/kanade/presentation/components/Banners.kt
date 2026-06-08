@@ -32,6 +32,7 @@ import androidx.compose.ui.util.fastMap
 import androidx.compose.ui.util.fastMaxBy
 import dev.icerock.moko.resources.StringResource
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.kmk.KMR
 import tachiyomi.presentation.core.i18n.stringResource
 import java.math.RoundingMode
 import java.text.NumberFormat
@@ -50,6 +51,8 @@ val SyncingBannerBackgroundColor
     @Composable get() = MaterialTheme.colorScheme.secondary
 val UpdatingBannerBackgroundColor
     @Composable get() = MaterialTheme.colorScheme.tertiary
+val FollowingBannerBackgroundColor
+    @Composable get() = MaterialTheme.colorScheme.secondary
 // KMK <--
 
 @Composable
@@ -85,10 +88,13 @@ fun AppStateBanners(
     restoring: Boolean,
     syncing: Boolean,
     updating: Boolean,
+    followingLoading: Boolean,
     // KMK <--
     modifier: Modifier = Modifier,
     // KMK -->
     progress: Float? = null,
+    followingLoadedAuthors: Int = 0,
+    followingTotalAuthors: Int = 0,
     // KMK <--
 ) {
     val density = LocalDensity.current
@@ -98,7 +104,7 @@ fun AppStateBanners(
         val indexingPlaceable = subcompose(0) {
             AnimatedVisibility(
                 // KMK -->
-                visible = indexing || restoring || syncing || updating,
+                visible = indexing || restoring || syncing || updating || followingLoading,
                 // KMK <--
                 enter = expandVertically(),
                 exit = shrinkVertically(),
@@ -119,6 +125,12 @@ fun AppStateBanners(
                         restoring -> progress?.let {
                             stringResource(MR.strings.restoring_backup) + " (${percentFormatter.format(it)})"
                         } ?: stringResource(MR.strings.restoring_backup)
+                        followingLoading -> stringResource(
+                            KMR.strings.following_loading_progress,
+                            followingLoadedAuthors,
+                            followingTotalAuthors,
+                            percentFormatter.format(progress ?: 0f),
+                        )
                         else -> stringResource(MR.strings.download_notifier_cache_renewal)
                     },
                     // KMK <--

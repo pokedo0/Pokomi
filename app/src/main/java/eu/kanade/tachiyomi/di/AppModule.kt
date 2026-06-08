@@ -27,6 +27,7 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.AndroidSourceManager
+import eu.kanade.tachiyomi.ui.following.FollowingLoadingStatus
 import eu.kanade.tachiyomi.util.system.isDebugBuildType
 import exh.eh.EHentaiUpdateHelper
 import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory
@@ -185,6 +186,7 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory { BackupRestoreStatus() }
         addSingletonFactory { SyncStatus() }
         addSingletonFactory { LibraryUpdateStatus() }
+        addSingletonFactory { FollowingLoadingStatus() }
         // KMK <--
 
         // AM (CONNECTIONS) -->

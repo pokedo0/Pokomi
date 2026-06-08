@@ -27,6 +27,7 @@ import mihon.domain.manga.model.toDomainManga
 import tachiyomi.core.common.util.QuerySanitizer.sanitize
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.data.source.NoResultsException
 import tachiyomi.domain.authorSubscription.interactor.GetAuthorSubscriptionResultCache
 import tachiyomi.domain.authorSubscription.interactor.GetAuthorSubscriptions
 import tachiyomi.domain.authorSubscription.interactor.UpdateAuthorSubscriptionRefreshTime
@@ -53,6 +54,7 @@ class FollowingScreenModel(
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
     private val followingPreferences: FollowingPreferences = Injekt.get(),
+    private val followingLoadingStatus: FollowingLoadingStatus = Injekt.get(),
 ) : StateScreenModel<FollowingScreenModel.State>(State()) {
 
     private val searchDispatcher = Executors.newFixedThreadPool(MAX_CONCURRENT_REQUESTS).asCoroutineDispatcher()
@@ -227,47 +229,89 @@ class FollowingScreenModel(
             } else {
                 subscriptionsById
             }
-            val subscriptions = subscriptionsWithCache
+            val refreshCandidates = subscriptionsWithCache
                 .filter { decideLoad(it, force, cachePolicy) == LoadDecision.Refresh }
-                .filterNot { subscription ->
-                    !force && reason == "visible" && isSerialRecoveringSource(subscription.source)
-                }
+            val serialRecoverySkippedIds = refreshCandidates
+                .filter { subscription -> !force && reason == "visible" && isSerialRecoveringSource(subscription.source) }
+                .map { it.id }
+            val afterSerialRecoveryFilter = refreshCandidates
+                .filterNot { it.id in serialRecoverySkippedIds }
+            val inFlightSkippedIds = afterSerialRecoveryFilter
+                .filter { subscription -> !force && isFollowingLoadInFlight(state.value.results[subscription.id]) }
+                .map { it.id }
+            val subscriptions = afterSerialRecoveryFilter
+                .filterNot { it.id in inFlightSkippedIds }
+                .distinctBy { it.id }
             trace {
                 "load evaluated reason=$reason requested=${subscriptionIds.size} matched=${subscriptionsById.size} " +
-                    "refreshing=${subscriptions.size} skipped=${subscriptionsWithCache.size - subscriptions.size} " +
+                    "refreshCandidates=${refreshCandidates.size} refreshing=${subscriptions.size} " +
+                    "ttlSkipped=${subscriptionsWithCache.size - refreshCandidates.size} " +
+                    "serialSkipped=${serialRecoverySkippedIds.size} inFlightSkipped=${inFlightSkippedIds.size} " +
                     "refreshIds=${subscriptions.map { it.id }.followingTracePreview()} " +
+                    "inFlightIds=${inFlightSkippedIds.followingTracePreview()} " +
                     "serialRecoveringSources=${serialRecoveringSourceIdsSnapshot().followingTracePreview()}"
             }
 
             if (subscriptions.isEmpty()) {
                 trace { "load skipped reason=$reason no refreshable subscriptions state=${state.value.results.followingTraceSummary()}" }
+                if (reason in COMPLETED_CHECK_REASONS) {
+                    if (!followingLoadingStatus.hasActiveLoads && inFlightSkippedIds.isEmpty()) {
+                        showCompletedCheckBanner(reason)
+                    } else {
+                        trace {
+                            "banner completed-check skipped reason=$reason activeLoad=${followingLoadingStatus.hasActiveLoads} " +
+                                "inFlightIds=${inFlightSkippedIds.followingTracePreview()} " +
+                                "banner=${followingLoadingStatus.snapshot.followingTraceLabel()} " +
+                                "state=${state.value.results.followingTraceSummary()}"
+                        }
+                    }
+                }
                 return@launchIO
             }
 
-            mutableState.update {
-                it.copy(
-                    results = it.results.mutate { results ->
-                        subscriptions.forEach { subscription ->
-                            results[subscription.id] = when (val result = results[subscription.id]) {
-                                is FollowingItemResult.Success -> result.copy(refreshing = true)
-                                else -> it.sourceRateLimits[subscription.source]
-                                    ?.toResult(subscription.source)
-                                    ?: FollowingItemResult.Loading
-                            }
-                        }
-                    },
-                )
-            }
+            val bannerTotal = state.value.subscriptions.size
+            val bannerLoadingIds = subscriptions.map { it.id }
+            val bannerSuccessful = state.value.successfulLoadCount(excludingIds = bannerLoadingIds)
             trace {
-                "load marked results reason=$reason refreshIds=${subscriptions.map { it.id }.followingTracePreview()} " +
-                    "state=${state.value.results.followingTraceSummary()}"
+                "banner start reason=$reason successful=$bannerSuccessful total=$bannerTotal " +
+                    "loadingIds=${bannerLoadingIds.followingTracePreview()} state=${state.value.results.followingTraceSummary()}"
             }
+            followingLoadingStatus.startLoad(
+                total = bannerTotal,
+                successful = bannerSuccessful,
+                loadingIds = bannerLoadingIds,
+            )
+            trace { "banner after start reason=$reason ${followingLoadingStatus.snapshot.followingTraceLabel()}" }
 
-            subscriptions
-                .map { subscription ->
-                    async { loadOne(subscription) }
+            try {
+                mutableState.update {
+                    it.copy(
+                        results = it.results.mutate { results ->
+                            subscriptions.forEach { subscription ->
+                                results[subscription.id] = when (val result = results[subscription.id]) {
+                                    is FollowingItemResult.Success -> result.copy(refreshing = true)
+                                    else -> it.sourceRateLimits[subscription.source]
+                                        ?.toResult(subscription.source)
+                                        ?: FollowingItemResult.Loading
+                                }
+                            }
+                        },
+                    )
                 }
-                .awaitAll()
+                trace {
+                    "load marked results reason=$reason refreshIds=${subscriptions.map { it.id }.followingTracePreview()} " +
+                        "state=${state.value.results.followingTraceSummary()}"
+                }
+
+                subscriptions
+                    .map { subscription ->
+                        async { loadOne(subscription) }
+                    }
+                    .awaitAll()
+            } finally {
+                followingLoadingStatus.finish()
+                trace { "banner finish reason=$reason ${followingLoadingStatus.snapshot.followingTraceLabel()}" }
+            }
             trace {
                 "load completed reason=$reason refreshIds=${subscriptions.map { it.id }.followingTracePreview()} " +
                     "state=${state.value.results.followingTraceSummary()}"
@@ -315,6 +359,31 @@ class FollowingScreenModel(
                 ?.let { subscription.copy(lastRefreshAt = it.cachedAt) }
                 ?: subscription
         }
+    }
+
+    private suspend fun showCompletedCheckBanner(reason: String) {
+        if (followingLoadingStatus.hasActiveLoads) {
+            trace {
+                "banner completed-check skipped reason=$reason activeLoad=true " +
+                    "banner=${followingLoadingStatus.snapshot.followingTraceLabel()} " +
+                    "state=${state.value.results.followingTraceSummary()}"
+            }
+            return
+        }
+        val bannerTotal = state.value.subscriptions.size
+        val bannerSuccessful = state.value.successfulLoadCount()
+        trace {
+            "banner completed-check start reason=$reason successful=$bannerSuccessful total=$bannerTotal " +
+                "state=${state.value.results.followingTraceSummary()}"
+        }
+        followingLoadingStatus.showCompletedCheck(
+            total = bannerTotal,
+            successful = bannerSuccessful,
+        )
+        trace { "banner completed-check after start reason=$reason ${followingLoadingStatus.snapshot.followingTraceLabel()}" }
+        delay(COMPLETED_CHECK_BANNER_DURATION_MS)
+        followingLoadingStatus.finishCompletedCheck()
+        trace { "banner completed-check finish reason=$reason ${followingLoadingStatus.snapshot.followingTraceLabel()}" }
     }
 
     private suspend fun loadOne(
@@ -419,8 +488,10 @@ class FollowingScreenModel(
         val refreshedAt = System.currentTimeMillis()
         trace { "complete start subscription=${subscription.id} source=${subscription.source} titles=${titles.size}" }
         updateResult(subscription.id, FollowingItemResult.Success(titles))
+        followingLoadingStatus.markSuccessful(subscription.id)
         trace {
-            "complete result updated subscription=${subscription.id} state=${state.value.results.followingTraceSummary()}"
+            "complete result updated subscription=${subscription.id} banner=${followingLoadingStatus.snapshot.followingTraceLabel()} " +
+                "state=${state.value.results.followingTraceSummary()}"
         }
         var startedAt = System.currentTimeMillis()
         upsertAuthorSubscriptionResultCache.await(subscription.id, titles, refreshedAt)
@@ -440,8 +511,17 @@ class FollowingScreenModel(
         dispatcher: CoroutineContext,
     ): List<Manga> {
         val startedAt = System.currentTimeMillis()
-        val page = withContext(dispatcher) {
-            source.getSearchManga(1, subscription.query.sanitize(), source.getFilterList())
+        val page = try {
+            withContext(dispatcher) {
+                source.getSearchManga(1, subscription.query.sanitize(), source.getFilterList())
+            }
+        } catch (e: Exception) {
+            if (!isFollowingNoResultsSuccess(e)) throw e
+            trace {
+                "search source no results subscription=${subscription.id} source=${source.id} " +
+                    "elapsedMs=${System.currentTimeMillis() - startedAt}"
+            }
+            return emptyList()
         }
         trace {
             "search source returned subscription=${subscription.id} source=${source.id} network=${page.mangas.size} " +
@@ -553,113 +633,131 @@ class FollowingScreenModel(
         }
 
         trace { "retry started source=$sourceId" }
+        val bannerTotal = state.value.subscriptions.size
+        val bannerLoadingIds = sourceRateLimitController.pendingSubscriptionIds(sourceId)
+        val bannerSuccessful = state.value.successfulLoadCount()
+        trace {
+            "banner start retry source=$sourceId successful=$bannerSuccessful total=$bannerTotal " +
+                "loadingIds=${bannerLoadingIds.followingTracePreview()} state=${state.value.results.followingTraceSummary()}"
+        }
+        followingLoadingStatus.startLoad(
+            total = bannerTotal,
+            successful = bannerSuccessful,
+            loadingIds = bannerLoadingIds,
+        )
+        trace { "banner after start retry source=$sourceId ${followingLoadingStatus.snapshot.followingTraceLabel()}" }
         screenModelScope.launchIO {
-            while (true) {
-                val rateLimit = sourceRateLimitController.current(sourceId) ?: run {
-                    trace { "retry stop source=$sourceId no current rate limit" }
-                    return@launchIO
-                }
-                val delaySeconds = SOURCE_RATE_LIMIT_BACKOFF_SECONDS[rateLimit.attempt - 1]
-                trace {
-                    "retry sleeping source=$sourceId attempt=${rateLimit.attempt}/${rateLimit.max} " +
-                        "generation=${rateLimit.generation} delaySeconds=$delaySeconds " +
-                        "pending=${sourceRateLimitController.pendingSubscriptionIds(sourceId).followingTracePreview()}"
-                }
-                delay(delaySeconds * 1000L)
-
-                if (sourceRateLimitController.current(sourceId)?.generation != rateLimit.generation) {
-                    trace {
-                        "retry stop source=$sourceId stale generation=${rateLimit.generation} " +
-                            "current=${sourceRateLimitController.current(sourceId)?.generation}"
+            try {
+                while (true) {
+                    val rateLimit = sourceRateLimitController.current(sourceId) ?: run {
+                        trace { "retry stop source=$sourceId no current rate limit" }
+                        return@launchIO
                     }
-                    return@launchIO
-                }
-
-                val retrySubscription = state.value.subscriptions
-                    .firstOrNull { it.id in sourceRateLimitController.pendingSubscriptionIds(sourceId) }
-
-                if (retrySubscription == null) {
-                    trace { "retry stop source=$sourceId no pending subscription" }
-                    sourceRateLimitController.close(sourceId)
-                    clearSourceRateLimit(sourceId)
-                    return@launchIO
-                }
-
-                trace {
-                    "retry probing source=$sourceId subscription=${retrySubscription.id} " +
-                        "attempt=${rateLimit.attempt}/${rateLimit.max} generation=${rateLimit.generation}"
-                }
-                val retryResult = try {
-                    withTimeout(SOURCE_RATE_LIMIT_RETRY_TIMEOUT_MS) {
-                        probeOne(retrySubscription)
-                    }
-                } catch (_: TimeoutCancellationException) {
+                    val delaySeconds = SOURCE_RATE_LIMIT_BACKOFF_SECONDS[rateLimit.attempt - 1]
                     trace {
-                        "retry probe timeout source=$sourceId subscription=${retrySubscription.id} " +
+                        "retry sleeping source=$sourceId attempt=${rateLimit.attempt}/${rateLimit.max} " +
+                            "generation=${rateLimit.generation} delaySeconds=$delaySeconds " +
+                            "pending=${sourceRateLimitController.pendingSubscriptionIds(sourceId).followingTracePreview()}"
+                    }
+                    delay(delaySeconds * 1000L)
+
+                    if (sourceRateLimitController.current(sourceId)?.generation != rateLimit.generation) {
+                        trace {
+                            "retry stop source=$sourceId stale generation=${rateLimit.generation} " +
+                                "current=${sourceRateLimitController.current(sourceId)?.generation}"
+                        }
+                        return@launchIO
+                    }
+
+                    val retrySubscription = state.value.subscriptions
+                        .firstOrNull { it.id in sourceRateLimitController.pendingSubscriptionIds(sourceId) }
+
+                    if (retrySubscription == null) {
+                        trace { "retry stop source=$sourceId no pending subscription" }
+                        sourceRateLimitController.close(sourceId)
+                        clearSourceRateLimit(sourceId)
+                        return@launchIO
+                    }
+
+                    trace {
+                        "retry probing source=$sourceId subscription=${retrySubscription.id} " +
                             "attempt=${rateLimit.attempt}/${rateLimit.max} generation=${rateLimit.generation}"
                     }
-                    SourceRetryProbeResult.RateLimited
-                }
-                when (retryResult) {
-                    is SourceRetryProbeResult.Success -> {
+                    val retryResult = try {
+                        withTimeout(SOURCE_RATE_LIMIT_RETRY_TIMEOUT_MS) {
+                            probeOne(retrySubscription)
+                        }
+                    } catch (_: TimeoutCancellationException) {
                         trace {
-                            "retry probe success source=$sourceId subscription=${retrySubscription.id} " +
-                                "titles=${retryResult.titles.size} generation=${rateLimit.generation}"
+                            "retry probe timeout source=$sourceId subscription=${retrySubscription.id} " +
+                                "attempt=${rateLimit.attempt}/${rateLimit.max} generation=${rateLimit.generation}"
                         }
-                        completeSubscriptionLoad(retrySubscription, retryResult.titles)
-                        if (sourceRateLimitController.current(sourceId)?.generation == rateLimit.generation) {
-                            val pendingSubscriptionIds = recoverSourceRateLimit(sourceId, retrySubscription.id, rateLimit.generation)
-                            drainRecoveredSourceSerially(sourceId, pendingSubscriptionIds)
-                        }
-                        return@launchIO
+                        SourceRetryProbeResult.RateLimited
                     }
-                    is SourceRetryProbeResult.Error -> {
-                        trace {
-                            "retry probe error source=$sourceId subscription=${retrySubscription.id} " +
-                                "type=${retryResult.throwable::class.simpleName} generation=${rateLimit.generation}"
+                    when (retryResult) {
+                        is SourceRetryProbeResult.Success -> {
+                            trace {
+                                "retry probe success source=$sourceId subscription=${retrySubscription.id} " +
+                                    "titles=${retryResult.titles.size} generation=${rateLimit.generation}"
+                            }
+                            completeSubscriptionLoad(retrySubscription, retryResult.titles)
+                            if (sourceRateLimitController.current(sourceId)?.generation == rateLimit.generation) {
+                                val pendingSubscriptionIds = recoverSourceRateLimit(sourceId, retrySubscription.id, rateLimit.generation)
+                                drainRecoveredSourceSerially(sourceId, pendingSubscriptionIds)
+                            }
+                            return@launchIO
                         }
-                        updateRefreshFailure(retrySubscription.id, FollowingItemResult.Error(retryResult.throwable))
-                        if (sourceRateLimitController.current(sourceId)?.generation == rateLimit.generation) {
-                            val pendingSubscriptionIds = recoverSourceRateLimit(sourceId, retrySubscription.id, rateLimit.generation)
-                            drainRecoveredSourceSerially(sourceId, pendingSubscriptionIds)
+                        is SourceRetryProbeResult.Error -> {
+                            trace {
+                                "retry probe error source=$sourceId subscription=${retrySubscription.id} " +
+                                    "type=${retryResult.throwable::class.simpleName} generation=${rateLimit.generation}"
+                            }
+                            updateRefreshFailure(retrySubscription.id, FollowingItemResult.Error(retryResult.throwable))
+                            if (sourceRateLimitController.current(sourceId)?.generation == rateLimit.generation) {
+                                val pendingSubscriptionIds = recoverSourceRateLimit(sourceId, retrySubscription.id, rateLimit.generation)
+                                drainRecoveredSourceSerially(sourceId, pendingSubscriptionIds)
+                            }
+                            return@launchIO
                         }
-                        return@launchIO
-                    }
-                    SourceRetryProbeResult.RateLimited -> {
-                        val nextRateLimit = sourceRateLimitController.advanceAfterFailedRetry(
-                            sourceId = sourceId,
-                            generation = rateLimit.generation,
-                        )
-                        if (nextRateLimit == null) {
-                            if (sourceRateLimitController.current(sourceId)?.generation != rateLimit.generation) {
-                                trace {
-                                    "retry failed source=$sourceId stale before stalled generation=${rateLimit.generation} " +
-                                        "current=${sourceRateLimitController.current(sourceId)?.generation}"
+                        SourceRetryProbeResult.RateLimited -> {
+                            val nextRateLimit = sourceRateLimitController.advanceAfterFailedRetry(
+                                sourceId = sourceId,
+                                generation = rateLimit.generation,
+                            )
+                            if (nextRateLimit == null) {
+                                if (sourceRateLimitController.current(sourceId)?.generation != rateLimit.generation) {
+                                    trace {
+                                        "retry failed source=$sourceId stale before stalled generation=${rateLimit.generation} " +
+                                            "current=${sourceRateLimitController.current(sourceId)?.generation}"
+                                    }
+                                    return@launchIO
                                 }
+                                trace {
+                                    "retry exhausted source=$sourceId generation=${rateLimit.generation} " +
+                                        "pending=${sourceRateLimitController.pendingSubscriptionIds(sourceId).followingTracePreview()}"
+                                }
+                                updateStalledSource(
+                                    sourceId = sourceId,
+                                    subscriptionIds = sourceRateLimitController.pendingSubscriptionIds(sourceId),
+                                )
+                                sourceRateLimitController.close(sourceId)
                                 return@launchIO
                             }
                             trace {
-                                "retry exhausted source=$sourceId generation=${rateLimit.generation} " +
-                                    "pending=${sourceRateLimitController.pendingSubscriptionIds(sourceId).followingTracePreview()}"
+                                "retry advanced source=$sourceId attempt=${nextRateLimit.attempt}/${nextRateLimit.max} " +
+                                    "generation=${nextRateLimit.generation}"
                             }
-                            updateStalledSource(
+                            updateRateLimitedSource(
                                 sourceId = sourceId,
                                 subscriptionIds = sourceRateLimitController.pendingSubscriptionIds(sourceId),
+                                rateLimit = nextRateLimit,
                             )
-                            sourceRateLimitController.close(sourceId)
-                            return@launchIO
                         }
-                        trace {
-                            "retry advanced source=$sourceId attempt=${nextRateLimit.attempt}/${nextRateLimit.max} " +
-                                "generation=${nextRateLimit.generation}"
-                        }
-                        updateRateLimitedSource(
-                            sourceId = sourceId,
-                            subscriptionIds = sourceRateLimitController.pendingSubscriptionIds(sourceId),
-                            rateLimit = nextRateLimit,
-                        )
                     }
                 }
+            } finally {
+                followingLoadingStatus.finish()
+                trace { "banner finish retry source=$sourceId ${followingLoadingStatus.snapshot.followingTraceLabel()}" }
             }
         }
     }
@@ -848,6 +946,11 @@ class FollowingScreenModel(
         }
     }
 
+    override fun onDispose() {
+        super.onDispose()
+        followingLoadingStatus.reset()
+    }
+
     private fun trace(message: () -> String) {
         logcat(LogPriority.DEBUG, tag = TRACE_TAG) { message() }
     }
@@ -869,6 +972,8 @@ class FollowingScreenModel(
         private const val MAX_CONCURRENT_REQUESTS = 5
         private const val SOURCE_RATE_LIMIT_MAX_ATTEMPTS = 6
         private const val SOURCE_RATE_LIMIT_RETRY_TIMEOUT_MS = 30_000L
+        private const val COMPLETED_CHECK_BANNER_DURATION_MS = 600L
+        private val COMPLETED_CHECK_REASONS = setOf("refresh-loaded", "refresh-all")
         private val SOURCE_RATE_LIMIT_BACKOFF_SECONDS = longArrayOf(10, 20, 30, 45, 60, 90)
     }
 }
@@ -908,6 +1013,23 @@ internal fun shouldSerialRecoveryProbe(result: FollowingItemResult?): Boolean {
     }
 }
 
+internal fun isFollowingNoResultsSuccess(throwable: Throwable): Boolean {
+    return throwable is NoResultsException
+}
+
+internal fun isFollowingLoadInFlight(result: FollowingItemResult?): Boolean {
+    return when (result) {
+        FollowingItemResult.Loading,
+        is FollowingItemResult.RateLimited,
+        -> true
+        is FollowingItemResult.Success -> result.refreshing
+        null,
+        FollowingItemResult.Stalled,
+        is FollowingItemResult.Error,
+        -> false
+    }
+}
+
 private fun FollowingItemResult?.followingTraceLabel(): String {
     return when (this) {
         null -> "null"
@@ -917,6 +1039,11 @@ private fun FollowingItemResult?.followingTraceLabel(): String {
         is FollowingItemResult.Error -> "Error(${throwable::class.simpleName}:${throwable.message})"
         is FollowingItemResult.Success -> "Success(size=${result.size},refreshing=$refreshing)"
     }
+}
+
+private fun FollowingLoadingSnapshot.followingTraceLabel(): String {
+    val percentage = progress?.let { (it * 100).toInt() } ?: 0
+    return "running=$running successful=$successful total=$total progress=$percentage%"
 }
 
 private fun Map<Long, FollowingItemResult>.followingTraceSummary(): String {
@@ -939,6 +1066,15 @@ private fun Map<Long, FollowingItemResult>.followingTraceSummary(): String {
         }
     }
     return "loading=$loading rateLimited=$rateLimited stalled=$stalled success=$success refreshing=$refreshing error=$error"
+}
+
+private fun FollowingScreenModel.State.successfulLoadCount(excludingIds: Collection<Long> = emptyList()): Int {
+    val excluded = excludingIds.toSet()
+    return subscriptions.count { subscription ->
+        subscription.id !in excluded && results[subscription.id].let { result ->
+            result is FollowingItemResult.Success && !result.refreshing
+        }
+    }
 }
 
 private fun Iterable<Long>.followingTracePreview(limit: Int = 12): String {

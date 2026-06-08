@@ -7,10 +7,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.domain.authorSubscription.interactor.DeleteAuthorSubscription
 import tachiyomi.domain.authorSubscription.interactor.GetAuthorSubscriptions
 import tachiyomi.domain.authorSubscription.interactor.ReorderAuthorSubscriptions
 import tachiyomi.domain.authorSubscription.interactor.moveToBottom
 import tachiyomi.domain.authorSubscription.interactor.moveToTop
+import tachiyomi.domain.authorSubscription.interactor.normalize
 import tachiyomi.domain.authorSubscription.interactor.reorder
 import tachiyomi.domain.authorSubscription.interactor.togglePinned
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
@@ -21,6 +23,7 @@ class AuthorRankScreenModel(
     initialAuthorId: Long?,
     private val getAuthorSubscriptions: GetAuthorSubscriptions = Injekt.get(),
     private val reorderAuthorSubscriptions: ReorderAuthorSubscriptions = Injekt.get(),
+    private val deleteAuthorSubscription: DeleteAuthorSubscription = Injekt.get(),
 ) : StateScreenModel<AuthorRankScreenModel.State>(
     State(
         initialAuthorId = initialAuthorId,
@@ -84,6 +87,17 @@ class AuthorRankScreenModel(
         }
     }
 
+    fun removeAuthor(id: Long) {
+        mutableState.update {
+            if (it.saving) return@update it
+
+            it.copy(
+                items = normalize(it.items.filterNot { item -> item.id == id }),
+                error = null,
+            )
+        }
+    }
+
     fun save(
         onSaved: (Long?) -> Unit,
         navigateUp: () -> Unit,
@@ -99,6 +113,10 @@ class AuthorRankScreenModel(
         screenModelScope.launch {
             try {
                 withIOContext {
+                    val itemIds = state.items.mapTo(mutableSetOf()) { it.id }
+                    state.initialSnapshot
+                        .filterNot { it.id in itemIds }
+                        .forEach { deleteAuthorSubscription.awaitById(it.id) }
                     reorderAuthorSubscriptions.await(state.items.forSave())
                 }
                 onSaved(state.highlightedAuthorId)

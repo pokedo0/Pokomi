@@ -26,6 +26,7 @@ class AuthorRankScreen(
             onTogglePinned = screenModel::togglePinned,
             onMoveToTop = screenModel::moveToTop,
             onMoveToBottom = screenModel::moveToBottom,
+            onRemoveAuthor = screenModel::removeAuthor,
             onDismissError = screenModel::dismissError,
             onSave = {
                 screenModel.save(

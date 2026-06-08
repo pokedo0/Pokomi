@@ -1,6 +1,9 @@
 package eu.kanade.presentation.following
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,6 +17,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.VerticalAlignBottom
 import androidx.compose.material.icons.outlined.VerticalAlignTop
@@ -23,8 +27,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxState
+import androidx.compose.material3.SwipeToDismissBoxValue.EndToStart
+import androidx.compose.material3.SwipeToDismissBoxValue.Settled
+import androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,6 +51,7 @@ import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
+import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -53,6 +64,7 @@ fun AuthorRankScreen(
     onTogglePinned: (Long) -> Unit,
     onMoveToTop: (Long) -> Unit,
     onMoveToBottom: (Long) -> Unit,
+    onRemoveAuthor: (Long) -> Unit,
     onDismissError: () -> Unit,
     onSave: () -> Unit,
     navigateUp: () -> Unit,
@@ -92,6 +104,7 @@ fun AuthorRankScreen(
             onTogglePinned = onTogglePinned,
             onMoveToTop = onMoveToTop,
             onMoveToBottom = onMoveToBottom,
+            onRemoveAuthor = onRemoveAuthor,
         )
     }
 }
@@ -104,6 +117,7 @@ private fun AuthorRankContent(
     onTogglePinned: (Long) -> Unit,
     onMoveToTop: (Long) -> Unit,
     onMoveToBottom: (Long) -> Unit,
+    onRemoveAuthor: (Long) -> Unit,
 ) {
     val initialIndex = state.items.indexOfFirst { it.id == state.initialAuthorId }.coerceAtLeast(0)
     val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
@@ -134,14 +148,19 @@ private fun AuthorRankContent(
         ) { index, subscription ->
             ReorderableItem(reorderableState, subscription.id) { isDragging ->
                 Column(modifier = Modifier.animateItem()) {
-                    AuthorRankRow(
-                        subscription = subscription,
-                        displayName = translateAuthorName(subscription.name),
+                    SwipeToDeleteAuthor(
                         enabled = !state.saving,
-                        onTogglePinned = { onTogglePinned(subscription.id) },
-                        onMoveToTop = { onMoveToTop(subscription.id) },
-                        onMoveToBottom = { onMoveToBottom(subscription.id) },
-                    )
+                        onRemove = { onRemoveAuthor(subscription.id) },
+                    ) {
+                        AuthorRankRow(
+                            subscription = subscription,
+                            displayName = translateAuthorName(subscription.name),
+                            enabled = !state.saving,
+                            onTogglePinned = { onTogglePinned(subscription.id) },
+                            onMoveToTop = { onMoveToTop(subscription.id) },
+                            onMoveToBottom = { onMoveToBottom(subscription.id) },
+                        )
+                    }
                     if (!isDragging && index < state.items.lastIndex) {
                         HorizontalDivider(
                             color = MaterialTheme.colorScheme.outlineVariant,
@@ -149,6 +168,64 @@ private fun AuthorRankContent(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SwipeToDeleteAuthor(
+    enabled: Boolean,
+    onRemove: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = {
+            if (it == EndToStart) {
+                onRemove()
+            }
+            it == EndToStart
+        },
+        positionalThreshold = { totalDistance -> totalDistance * 0.25f },
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = { AuthorDeleteBackground(dismissState) },
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = enabled,
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun AuthorDeleteBackground(dismissState: SwipeToDismissBoxState) {
+    val direction = dismissState.dismissDirection
+    val targetState = dismissState.targetValue
+    val backgroundColor by animateColorAsState(
+        when (direction) {
+            EndToStart ->
+                MaterialTheme.colorScheme.errorContainer
+                    .copy(alpha = if (targetState == Settled) 0.45f else 1f)
+            Settled,
+            StartToEnd,
+            -> MaterialTheme.colorScheme.surface
+        },
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundColor)
+            .padding(horizontal = 20.dp),
+        contentAlignment = Alignment.CenterEnd,
+    ) {
+        if (direction == EndToStart) {
+            Icon(
+                imageVector = Icons.Outlined.Delete,
+                contentDescription = stringResource(MR.strings.action_delete),
+                tint = MaterialTheme.colorScheme.onErrorContainer,
+            )
         }
     }
 }
@@ -167,6 +244,7 @@ private fun ReorderableCollectionItemScope.AuthorRankRow(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 72.dp)
+            .background(MaterialTheme.colorScheme.surface)
             .clickable(enabled = enabled, onClick = {})
             .padding(horizontal = MaterialTheme.padding.medium),
         verticalAlignment = Alignment.CenterVertically,

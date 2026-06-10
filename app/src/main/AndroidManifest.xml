@@ -187,8 +187,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="komikku" />
-                <data android:scheme="mihon" />
+                <data android:scheme="pokomi" />
 
                 <data android:host="anilist-auth" />
                 <data android:host="bangumi-auth" />
@@ -207,7 +206,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data
-                    android:scheme="eu.kanade.google.oauth" />
+                    android:scheme="app.pokomi.google.oauth" />
             </intent-filter>
         </activity>
 

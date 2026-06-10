@@ -23,7 +23,7 @@ class SyncPreferences(
     fun webDavUrl() = preferenceStore.getString("webdav_url", "")
     fun webDavUsername() = preferenceStore.getString("webdav_username", "")
     fun webDavPassword() = preferenceStore.getString("webdav_password", "")
-    fun webDavFolder() = preferenceStore.getString("webdav_folder", "komikku")
+    fun webDavFolder() = preferenceStore.getString("webdav_folder", "pokomi")
     // KMK <--
 
     fun googleDriveAccessToken() = preferenceStore.getString(

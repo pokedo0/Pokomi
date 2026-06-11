@@ -47,7 +47,9 @@
     <string name="pref_following_cache_ttl">Cache duration</string>
     <string name="pref_category_following">Following</string>
     <string name="pref_following_summary">Loading, rate limit and cache behavior</string>
-    <string name="pref_following_cache_ttl_summary">Hours before a cached author result is refreshed. 0 = never auto-refresh.</string>
+    <string name="pref_following_cache_ttl_summary">Hours before a cached author result is refreshed. 0 = skip persistent cache, always fetch fresh on open.</string>
+    <string name="pref_following_auto_refresh_on_switch">Auto refresh on tab switch</string>
+    <string name="pref_following_auto_refresh_on_switch_summary">Automatically refresh loaded authors when switching to the Following tab</string>
         <!-- History section -->
     <string name="action_filter_unfinished_manga">Unfinished manga</string>
     <string name="action_filter_unfinished_chapter">Unfinished chapter</string>

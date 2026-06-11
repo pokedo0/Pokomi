@@ -17,6 +17,11 @@ class FollowingPreferences(
         "24",
     )
 
+    fun autoRefreshOnSwitch() = preferenceStore.getBoolean(
+        "pref_following_auto_refresh_on_switch",
+        false,
+    )
+
     fun lastModifiedAt() = preferenceStore.getLong(
         Preference.appStateKey("pref_following_last_modified_at"),
         0,

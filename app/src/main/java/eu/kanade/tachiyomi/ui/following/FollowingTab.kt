@@ -3,8 +3,10 @@ package eu.kanade.tachiyomi.ui.following
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -14,8 +16,11 @@ import eu.kanade.presentation.following.FollowingScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import tachiyomi.domain.authorSubscription.service.FollowingPreferences
 import tachiyomi.i18n.kmk.KMR
 import tachiyomi.presentation.core.i18n.stringResource
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 data object FollowingTab : Tab {
     private fun readResolve(): Any = FollowingTab
@@ -35,6 +40,17 @@ data object FollowingTab : Tab {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = rememberScreenModel { FollowingScreenModel() }
         val state by screenModel.state.collectAsState()
+
+        // KMK -->
+        val autoRefreshOnSwitch = remember {
+            Injekt.get<FollowingPreferences>().autoRefreshOnSwitch().get()
+        }
+        LaunchedEffect(Unit) {
+            if (autoRefreshOnSwitch) {
+                screenModel.refreshLoaded()
+            }
+        }
+        // KMK <--
 
         FollowingScreen(
             subscriptions = state.subscriptions,

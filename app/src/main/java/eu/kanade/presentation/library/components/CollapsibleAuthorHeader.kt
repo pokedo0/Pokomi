@@ -27,7 +27,7 @@ fun CollapsibleAuthorHeader(
     expanded: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    titleTextStyle: TextStyle = MaterialTheme.typography.titleLarge,
+    titleTextStyle: TextStyle = MaterialTheme.typography.titleMedium,
     // KMK -->
     contentPadding: PaddingValues = PaddingValues(
         start = MaterialTheme.padding.small,

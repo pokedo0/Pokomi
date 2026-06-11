@@ -29,6 +29,11 @@ object SettingsFollowingScreen : SearchableSettings {
                 title = stringResource(KMR.strings.pref_following_auto_load_all),
                 subtitle = stringResource(KMR.strings.pref_following_auto_load_all_summary),
             ),
+            Preference.PreferenceItem.SwitchPreference(
+                preference = followingPreferences.autoRefreshOnSwitch(),
+                title = stringResource(KMR.strings.pref_following_auto_refresh_on_switch),
+                subtitle = stringResource(KMR.strings.pref_following_auto_refresh_on_switch_summary),
+            ),
             Preference.PreferenceItem.EditTextPreference(
                 preference = followingPreferences.cacheTtlHours(),
                 title = stringResource(KMR.strings.pref_following_cache_ttl),

@@ -118,6 +118,10 @@ import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.authorSubscription.interactor.DeleteAuthorSubscription
+import tachiyomi.domain.authorSubscription.interactor.GetAuthorSubscriptions
+import tachiyomi.domain.authorSubscription.interactor.UpsertAuthorSubscription
+import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
@@ -234,6 +238,9 @@ class MangaScreenModel(
     private val insertLibraryUpdateErrors: InsertLibraryUpdateErrors = Injekt.get(),
     private val insertLibraryUpdateErrorMessages: InsertLibraryUpdateErrorMessages = Injekt.get(),
     private val deleteChaptersFromDb: DeleteChapters = Injekt.get(),
+    private val getAuthorSubscriptions: GetAuthorSubscriptions = Injekt.get(),
+    private val upsertAuthorSubscription: UpsertAuthorSubscription = Injekt.get(),
+    private val deleteAuthorSubscription: DeleteAuthorSubscription = Injekt.get(),
     // KMK <--
 ) : StateScreenModel<MangaScreenModel.State>(State.Loading) {
 
@@ -243,6 +250,7 @@ class MangaScreenModel(
     // KMK -->
     val useNewSourceNavigation by uiPreferences.useNewSourceNavigation().asState(screenModelScope)
     val themeCoverBased = uiPreferences.themeCoverBased().get()
+    private var authorSubscriptions: List<AuthorSubscription> = emptyList()
     // KMK <--
 
     val manga: Manga?
@@ -385,6 +393,14 @@ class MangaScreenModel(
                         it.copy(
                             manga = manga,
                             chapters = chapterItems,
+                            // KMK -->
+                            authorFollowStates = buildAuthorFollowStates(
+                                sourceId = manga.source,
+                                author = manga.author,
+                                artist = manga.artist,
+                                subscriptions = authorSubscriptions,
+                            ),
+                            // KMK <--
                             // SY -->
                             meta = raiseMetadata(flatMetadata, it.source),
                             mergedData = mergedData,
@@ -426,6 +442,25 @@ class MangaScreenModel(
                 .collectLatest { availableScanlators ->
                     updateSuccessState {
                         it.copy(availableScanlators = availableScanlators.toImmutableSet())
+                    }
+                }
+        }
+
+        screenModelScope.launchIO {
+            getAuthorSubscriptions.subscribeAll()
+                .flowWithLifecycle(lifecycle)
+                .distinctUntilChanged()
+                .collectLatest { subscriptions ->
+                    authorSubscriptions = subscriptions
+                    updateSuccessState { state ->
+                        state.copy(
+                            authorFollowStates = buildAuthorFollowStates(
+                                sourceId = state.manga.source,
+                                author = state.manga.author,
+                                artist = state.manga.artist,
+                                subscriptions = subscriptions,
+                            ),
+                        )
                     }
                 }
         }
@@ -496,6 +531,12 @@ class MangaScreenModel(
                     alwaysShowReadingProgress =
                     readerPreferences.preserveReadingPosition().get() && manga.isEhBasedManga(),
                     previewsRowCount = uiPreferences.previewsRowCount().get(),
+                    authorFollowStates = buildAuthorFollowStates(
+                        sourceId = manga.source,
+                        author = manga.author,
+                        artist = manga.artist,
+                        subscriptions = getAuthorSubscriptions.awaitAll(),
+                    ),
                     // SY <--
                 )
             }
@@ -578,6 +619,31 @@ class MangaScreenModel(
                 )
                 .build(),
         )
+    }
+
+    fun toggleAuthorFollow(name: String) {
+        val state = successState ?: return
+        val followed = state.authorFollowStates.firstOrNull { it.name == name }?.followed == true
+        if (!followed && findAuthorFollowConflict(state.manga.source, name, authorSubscriptions) != null) {
+            updateSuccessState { it.copy(dialog = Dialog.SwitchAuthorSource(name)) }
+            return
+        }
+        switchAuthorFollowSource(name)
+    }
+
+    fun switchAuthorFollowSource(name: String) {
+        val state = successState ?: return
+        screenModelScope.launchIO {
+            if (state.authorFollowStates.firstOrNull { it.name == name }?.followed == true) {
+                deleteAuthorSubscription.awaitByQuery(name)
+            } else {
+                upsertAuthorSubscription.await(
+                    source = state.manga.source,
+                    query = name,
+                    name = name,
+                )
+            }
+        }
     }
 
     private suspend fun syncTrackers() {
@@ -1932,6 +1998,7 @@ class MangaScreenModel(
 
         // KMK -->
         data object ClearManga : Dialog
+        data class SwitchAuthorSource(val name: String) : Dialog
         // KMK <--
 
         data object SettingsSheet : Dialog
@@ -2043,6 +2110,7 @@ class MangaScreenModel(
              */
             val relatedMangaCollection: List<RelatedManga>? = null,
             val seedColor: Color? = manga.asMangaCover().vibrantCoverColor?.let { Color(it) },
+            val authorFollowStates: List<AuthorFollowState> = emptyList(),
             // KMK <--
         ) : State {
             // KMK -->

@@ -95,6 +95,7 @@ import eu.kanade.tachiyomi.source.online.all.MangaDex
 import eu.kanade.tachiyomi.source.online.all.NHentai
 import eu.kanade.tachiyomi.source.online.english.EightMuses
 import eu.kanade.tachiyomi.source.online.english.Pururin
+import eu.kanade.tachiyomi.ui.manga.AuthorFollowState
 import eu.kanade.tachiyomi.ui.manga.ChapterList
 import eu.kanade.tachiyomi.ui.manga.MangaScreenModel
 import eu.kanade.tachiyomi.ui.manga.MergedMangaData
@@ -205,6 +206,7 @@ fun MangaScreen(
     librarySearch: (query: String) -> Unit,
     onSourceClick: () -> Unit,
     onCoverLoaded: (MangaCover) -> Unit,
+    onToggleAuthorFollow: (String) -> Unit,
     coverRatio: MutableFloatState,
     onPaletteScreenClick: () -> Unit,
     hazeState: HazeState,
@@ -274,6 +276,7 @@ fun MangaScreen(
             librarySearch = librarySearch,
             onSourceClick = onSourceClick,
             onCoverLoaded = onCoverLoaded,
+            onToggleAuthorFollow = onToggleAuthorFollow,
             coverRatio = coverRatio,
             onPaletteScreenClick = onPaletteScreenClick,
             hazeState = hazeState,
@@ -336,6 +339,7 @@ fun MangaScreen(
             librarySearch = librarySearch,
             onSourceClick = onSourceClick,
             onCoverLoaded = onCoverLoaded,
+            onToggleAuthorFollow = onToggleAuthorFollow,
             coverRatio = coverRatio,
             onPaletteScreenClick = onPaletteScreenClick,
             hazeState = hazeState,
@@ -415,6 +419,7 @@ private fun MangaScreenSmallImpl(
     librarySearch: (query: String) -> Unit,
     onSourceClick: () -> Unit,
     onCoverLoaded: (MangaCover) -> Unit,
+    onToggleAuthorFollow: (String) -> Unit,
     coverRatio: MutableFloatState,
     onPaletteScreenClick: () -> Unit,
     hazeState: HazeState,
@@ -632,6 +637,8 @@ private fun MangaScreenSmallImpl(
                             librarySearch = librarySearch,
                             onSourceClick = onSourceClick,
                             onCoverLoaded = onCoverLoaded,
+                            authorFollowStates = state.authorFollowStates,
+                            onToggleAuthorFollow = onToggleAuthorFollow,
                             coverRatio = coverRatio,
                             // KMK <--
                         )
@@ -879,6 +886,7 @@ private fun MangaScreenLargeImpl(
     librarySearch: (query: String) -> Unit,
     onSourceClick: () -> Unit,
     onCoverLoaded: (MangaCover) -> Unit,
+    onToggleAuthorFollow: (String) -> Unit,
     coverRatio: MutableFloatState,
     onPaletteScreenClick: () -> Unit,
     hazeState: HazeState,
@@ -1088,6 +1096,8 @@ private fun MangaScreenLargeImpl(
                             librarySearch = librarySearch,
                             onSourceClick = onSourceClick,
                             onCoverLoaded = onCoverLoaded,
+                            authorFollowStates = state.authorFollowStates,
+                            onToggleAuthorFollow = onToggleAuthorFollow,
                             coverRatio = coverRatio,
                             // KMK <--
                         )

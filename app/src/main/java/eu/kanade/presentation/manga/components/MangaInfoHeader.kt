@@ -45,6 +45,8 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -93,6 +95,7 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.ui.manga.AuthorFollowState
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.MarkdownTokenTypes
@@ -136,6 +139,8 @@ fun MangaInfoBox(
     librarySearch: (query: String) -> Unit,
     onSourceClick: () -> Unit,
     onCoverLoaded: (DomainMangaCover) -> Unit,
+    authorFollowStates: List<AuthorFollowState>,
+    onToggleAuthorFollow: (String) -> Unit,
     coverRatio: MutableFloatState,
     // KMK <--
 ) {
@@ -200,6 +205,8 @@ fun MangaInfoBox(
                     librarySearch = librarySearch,
                     onSourceClick = onSourceClick,
                     onCoverLoaded = onCoverLoaded,
+                    authorFollowStates = authorFollowStates,
+                    onToggleAuthorFollow = onToggleAuthorFollow,
                     coverRatio = coverRatio,
                     usePanoramaCover = usePanoramaCover,
                     topAlignCover = topAlignCover,
@@ -220,6 +227,8 @@ fun MangaInfoBox(
                     librarySearch = librarySearch,
                     onSourceClick = onSourceClick,
                     onCoverLoaded = onCoverLoaded,
+                    authorFollowStates = authorFollowStates,
+                    onToggleAuthorFollow = onToggleAuthorFollow,
                     coverRatio = coverRatio,
                     usePanoramaCover = usePanoramaCover,
                     // KMK <--
@@ -498,6 +507,8 @@ private fun MangaAndSourceTitlesLarge(
     librarySearch: (query: String) -> Unit,
     onSourceClick: () -> Unit,
     onCoverLoaded: (DomainMangaCover) -> Unit,
+    authorFollowStates: List<AuthorFollowState>,
+    onToggleAuthorFollow: (String) -> Unit,
     coverRatio: MutableFloatState,
     usePanoramaCover: Boolean = false,
     // KMK <--
@@ -561,6 +572,8 @@ private fun MangaAndSourceTitlesLarge(
             // KMK -->
             librarySearch = librarySearch,
             onSourceClick = onSourceClick,
+            authorFollowStates = authorFollowStates,
+            onToggleAuthorFollow = onToggleAuthorFollow,
             // KMK <--
         )
     }
@@ -581,6 +594,8 @@ private fun MangaAndSourceTitlesSmall(
     librarySearch: (query: String) -> Unit,
     onSourceClick: () -> Unit,
     onCoverLoaded: (DomainMangaCover) -> Unit,
+    authorFollowStates: List<AuthorFollowState>,
+    onToggleAuthorFollow: (String) -> Unit,
     coverRatio: MutableFloatState,
     usePanoramaCover: Boolean = false,
     topAlignCover: Boolean = false,
@@ -655,6 +670,8 @@ private fun MangaAndSourceTitlesSmall(
                 // KMK -->
                 librarySearch = librarySearch,
                 onSourceClick = onSourceClick,
+                authorFollowStates = authorFollowStates,
+                onToggleAuthorFollow = onToggleAuthorFollow,
                 // KMK <--
             )
         }
@@ -678,6 +695,8 @@ private fun ColumnScope.MangaContentInfo(
     // KMK -->
     librarySearch: (query: String) -> Unit,
     onSourceClick: () -> Unit,
+    authorFollowStates: List<AuthorFollowState>,
+    onToggleAuthorFollow: (String) -> Unit,
     // KMK <--
 ) {
     val context = LocalContext.current
@@ -733,64 +752,18 @@ private fun ColumnScope.MangaContentInfo(
 
     Spacer(modifier = Modifier.height(2.dp))
 
-    Row(
-        modifier = Modifier.secondaryItemAlpha(),
-        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = Icons.Filled.PersonOutline,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-        )
-        Text(
-            text = author?.takeIf { it.isNotBlank() }
-                ?: stringResource(MR.strings.unknown_author),
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier
-                .clickableNoIndication(
-                    onLongClick = {
-                        if (!author.isNullOrBlank()) {
-                            // KMK -->
-                            tagSelected = author
-                            showMenu = true
-                            // KMK <--
-                        }
-                    },
-                    onClick = { if (!author.isNullOrBlank()) doSearch(author, true) },
-                ),
-            textAlign = textAlign,
-        )
-    }
-
-    if (!artist.isNullOrBlank() && author != artist) {
-        Row(
-            modifier = Modifier.secondaryItemAlpha(),
-            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Brush,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-            )
-            Text(
-                text = artist,
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier
-                    .clickableNoIndication(
-                        onLongClick = {
-                            // KMK -->
-                            tagSelected = artist
-                            showMenu = true
-                            // KMK <--
-                        },
-                        onClick = { doSearch(artist, true) },
-                    ),
-                textAlign = textAlign,
-            )
-        }
-    }
+    AuthorFollowRows(
+        author = author,
+        artist = artist,
+        authorFollowStates = authorFollowStates,
+        onToggleAuthorFollow = onToggleAuthorFollow,
+        textAlign = textAlign,
+        onSearch = doSearch,
+        onLongClick = {
+            tagSelected = it
+            showMenu = true
+        },
+    )
 
     Spacer(modifier = Modifier.height(2.dp))
 
@@ -867,6 +840,115 @@ private fun ColumnScope.MangaContentInfo(
                 overflow = TextOverflow.Ellipsis,
                 maxLines = 1,
             )
+        }
+    }
+}
+
+@Composable
+private fun AuthorFollowRows(
+    author: String?,
+    artist: String?,
+    authorFollowStates: List<AuthorFollowState>,
+    onToggleAuthorFollow: (String) -> Unit,
+    textAlign: TextAlign?,
+    onSearch: (query: String, global: Boolean) -> Unit,
+    onLongClick: (String) -> Unit,
+) {
+    val authorName = author?.trim()?.takeIf { it.isNotBlank() }
+    val artistName = artist?.trim()?.takeIf { it.isNotBlank() }
+
+    Column {
+        AuthorFollowRow(
+            icon = Icons.Filled.PersonOutline,
+            text = authorName ?: stringResource(MR.strings.unknown_author),
+            followState = authorFollowStates.firstOrNull { it.name == authorName },
+            onToggleAuthorFollow = onToggleAuthorFollow,
+            textAlign = textAlign,
+            onSearch = onSearch,
+            onLongClick = onLongClick,
+        )
+        artistName
+            ?.takeIf { it != authorName }
+            ?.let { artist ->
+                AuthorFollowRow(
+                    icon = Icons.Filled.Brush,
+                    text = artist,
+                    followState = authorFollowStates.firstOrNull { it.name == artist },
+                    onToggleAuthorFollow = onToggleAuthorFollow,
+                    textAlign = textAlign,
+                    onSearch = onSearch,
+                    onLongClick = onLongClick,
+                )
+            }
+    }
+}
+
+@Composable
+private fun AuthorFollowRow(
+    icon: ImageVector,
+    text: String,
+    followState: AuthorFollowState?,
+    onToggleAuthorFollow: (String) -> Unit,
+    textAlign: TextAlign?,
+    onSearch: (query: String, global: Boolean) -> Unit,
+    onLongClick: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier.secondaryItemAlpha(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            modifier = Modifier.weight(1f, fill = false),
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Text(
+                text = text,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.clickableNoIndication(
+                    onLongClick = {
+                        if (followState != null) {
+                            onLongClick(text)
+                        }
+                    },
+                    onClick = { if (followState != null) onSearch(text, true) },
+                ),
+                textAlign = textAlign,
+            )
+        }
+        if (followState != null) {
+            IconButton(
+                onClick = { onToggleAuthorFollow(followState.name) },
+                modifier = Modifier.size(32.dp),
+                colors = IconButtonDefaults.iconButtonColors(
+                    contentColor = if (followState.followed) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        LocalContentColor.current
+                    },
+                ),
+            ) {
+                Icon(
+                    imageVector = if (followState.followed) {
+                        Icons.Filled.Favorite
+                    } else {
+                        Icons.Outlined.FavoriteBorder
+                    },
+                    contentDescription = stringResource(
+                        if (followState.followed) {
+                            KMR.strings.following_unsubscribe_author
+                        } else {
+                            KMR.strings.following_subscribe_author
+                        },
+                    ),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
     }
 }

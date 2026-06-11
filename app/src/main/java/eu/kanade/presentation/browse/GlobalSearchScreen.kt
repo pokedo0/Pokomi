@@ -1,10 +1,16 @@
 package eu.kanade.presentation.browse
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
@@ -17,6 +23,7 @@ import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchToolbar
 import eu.kanade.presentation.components.BulkSelectionToolbar
+import eu.kanade.tachiyomi.data.translation.TagSuggestion
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.ui.browse.BulkFavoriteScreenModel
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchItemResult
@@ -101,24 +108,58 @@ fun GlobalSearchScreen(
             }
         },
     ) { paddingValues ->
-        GlobalSearchContent(
-            items = state.filteredItems,
-            contentPadding = paddingValues,
-            getManga = getManga,
-            onClickSource = onClickSource,
-            onClickItem = onClickItem,
-            onLongClickItem = onLongClickItem,
-            // KMK -->
-            showSubscriptionAction = !state.searchQuery.isNullOrBlank(),
-            subscribedSourceId = subscribedSourceId,
-            onClickSubscribeSource = onClickSubscribeSource,
+        // KMK -->
+        if (state.showTagSuggestions) {
+            GlobalSearchTagSuggestions(
+                suggestions = state.tagSuggestions,
+                contentPadding = paddingValues,
+                onClickSuggestion = { onChangeSearchQuery(it.keyword) },
+            )
+        } else {
             // KMK <--
+            GlobalSearchContent(
+                items = state.filteredItems,
+                contentPadding = paddingValues,
+                getManga = getManga,
+                onClickSource = onClickSource,
+                onClickItem = onClickItem,
+                onLongClickItem = onLongClickItem,
+                // KMK -->
+                showSubscriptionAction = !state.searchQuery.isNullOrBlank(),
+                subscribedSourceId = subscribedSourceId,
+                onClickSubscribeSource = onClickSubscribeSource,
+                // KMK <--
+                // KMK -->
+                selection = bulkFavoriteState.selection,
+                // KMK <--
+            )
             // KMK -->
-            selection = bulkFavoriteState.selection,
-            // KMK <--
-        )
+        }
+        // KMK <--
     }
 }
+
+// KMK -->
+@Composable
+private fun GlobalSearchTagSuggestions(
+    suggestions: List<TagSuggestion>,
+    contentPadding: PaddingValues,
+    onClickSuggestion: (TagSuggestion) -> Unit,
+) {
+    LazyColumn(
+        contentPadding = contentPadding,
+    ) {
+        items(suggestions, key = { "${it.keyword}:${it.hint}" }) { suggestion ->
+            ListItem(
+                headlineContent = { Text(text = suggestion.keyword) },
+                supportingContent = suggestion.hint?.let { { Text(text = it) } },
+                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                modifier = Modifier.clickable { onClickSuggestion(suggestion) },
+            )
+        }
+    }
+}
+// KMK <--
 
 @Composable
 internal fun GlobalSearchContent(

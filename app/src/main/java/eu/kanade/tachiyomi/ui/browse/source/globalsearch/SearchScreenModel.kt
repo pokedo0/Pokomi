@@ -6,14 +6,21 @@ import androidx.compose.runtime.produceState
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.util.ioCoroutineScope
+import eu.kanade.tachiyomi.data.translation.AuthorTagTranslator
+import eu.kanade.tachiyomi.data.translation.TagSuggestion
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.CatalogueSource
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.mutate
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toPersistentMap
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
@@ -44,10 +51,18 @@ abstract class SearchScreenModel(
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
     private val preferences: SourcePreferences = Injekt.get(),
+    // KMK -->
+    private val uiPreferences: UiPreferences = Injekt.get(),
+    private val authorTagTranslator: AuthorTagTranslator = Injekt.get(),
+    // KMK <--
 ) : StateScreenModel<SearchScreenModel.State>(initialState) {
 
     private val coroutineDispatcher = Executors.newFixedThreadPool(5).asCoroutineDispatcher()
     private var searchJob: Job? = null
+    // KMK -->
+    private var suggestionsJob: Job? = null
+    private var includeTranslationHints = uiPreferences.translateAuthorNames().get()
+    // KMK <--
 
     private val enabledLanguages = sourcePreferences.enabledLanguages().get()
     private val disabledSources = sourcePreferences.disabledSources().get()
@@ -76,6 +91,18 @@ abstract class SearchScreenModel(
         screenModelScope.launch {
             preferences.globalSearchPinnedState().changes().collectLatest { state ->
                 mutableState.update { it.copy(sourceFilter = state) }
+            }
+        }
+        authorTagTranslator.launchUpdate()
+        screenModelScope.launch {
+            uiPreferences.translateAuthorNames().changes().collectLatest { enabled ->
+                includeTranslationHints = enabled
+                updateTagSuggestions(state.value.searchQuery)
+            }
+        }
+        screenModelScope.launch {
+            authorTagTranslator.database.collectLatest {
+                updateTagSuggestions(state.value.searchQuery)
             }
         }
         // KMK <--
@@ -133,7 +160,44 @@ abstract class SearchScreenModel(
 
     fun updateSearchQuery(query: String?) {
         mutableState.update { it.copy(searchQuery = query) }
+        // KMK -->
+        updateTagSuggestions(query)
+        // KMK <--
     }
+
+    // KMK -->
+    private fun updateTagSuggestions(query: String?) {
+        suggestionsJob?.cancel()
+        val keyword = query?.trim().orEmpty()
+
+        if (keyword.isEmpty() || keyword == lastQuery) {
+            mutableState.update {
+                it.copy(
+                    tagSuggestions = persistentListOf(),
+                    showTagSuggestions = false,
+                )
+            }
+            return
+        }
+
+        mutableState.update { it.copy(showTagSuggestions = true) }
+        suggestionsJob = screenModelScope.launch {
+            val suggestions = withContext(Dispatchers.Default) {
+                authorTagTranslator.suggest(keyword, includeTranslationHints).toImmutableList()
+            }
+            mutableState.update { currentState ->
+                if (currentState.searchQuery?.trim() == keyword && keyword != lastQuery) {
+                    currentState.copy(
+                        tagSuggestions = suggestions,
+                        showTagSuggestions = true,
+                    )
+                } else {
+                    currentState
+                }
+            }
+        }
+    }
+    // KMK <--
 
     fun setSourceFilter(filter: SourceFilter) {
         preferences.globalSearchPinnedState().set(filter)
@@ -149,6 +213,16 @@ abstract class SearchScreenModel(
         val sourceFilter = state.value.sourceFilter
 
         if (query.isNullOrBlank()) return
+
+        // KMK -->
+        suggestionsJob?.cancel()
+        mutableState.update {
+            it.copy(
+                tagSuggestions = persistentListOf(),
+                showTagSuggestions = false,
+            )
+        }
+        // KMK <--
 
         val sameQuery = this.lastQuery == query
         if (sameQuery && this.lastSourceFilter == sourceFilter) return
@@ -243,6 +317,10 @@ abstract class SearchScreenModel(
         val onlyShowHasResults: Boolean = false,
         val items: PersistentMap<CatalogueSource, SearchItemResult> = persistentMapOf(),
         val dialog: Dialog? = null,
+        // KMK -->
+        val tagSuggestions: ImmutableList<TagSuggestion> = persistentListOf(),
+        val showTagSuggestions: Boolean = false,
+        // KMK <--
     ) {
         val progress: Int = items.count { it.value !is SearchItemResult.Loading }
         val total: Int = items.size

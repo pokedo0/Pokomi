@@ -64,7 +64,7 @@ class FollowingLoadingStatus {
         }
     }
 
-    fun markFinishedWithoutSuccess() {
+    fun markFinishedWithoutSuccess(id: Long? = null) {
         state.value = state.value
     }
 
@@ -101,4 +101,12 @@ class FollowingLoadingStatus {
         successfulLoadIds.clear()
         state.value = FollowingLoadingSnapshot()
     }
+}
+
+internal fun followingBannerFinishDelayMillis(
+    startedAt: Long,
+    now: Long,
+    minVisibleMillis: Long,
+): Long {
+    return (minVisibleMillis - (now - startedAt)).coerceAtLeast(0)
 }

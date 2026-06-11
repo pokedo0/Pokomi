@@ -49,6 +49,28 @@ class FollowingLoadingStatusTest {
     }
 
     @Test
+    fun `failed active load keeps banner visible until load finishes`() {
+        val status = FollowingLoadingStatus()
+        status.startLoad(total = 100, successful = 10, loadingIds = listOf(42))
+
+        status.markFinishedWithoutSuccess(42)
+
+        status.snapshot shouldBe FollowingLoadingSnapshot(
+            running = true,
+            successful = 10,
+            total = 100,
+        )
+
+        status.finish()
+
+        status.snapshot shouldBe FollowingLoadingSnapshot(
+            running = false,
+            successful = 10,
+            total = 100,
+        )
+    }
+
+    @Test
     fun `finish hides banner and keeps final progress`() {
         val status = FollowingLoadingStatus()
         status.begin(total = 100, successful = 10)
@@ -61,6 +83,21 @@ class FollowingLoadingStatusTest {
             successful = 11,
             total = 100,
         )
+    }
+
+    @Test
+    fun `fast load waits for minimum visible duration before hiding banner`() {
+        followingBannerFinishDelayMillis(
+            startedAt = 1_000,
+            now = 1_100,
+            minVisibleMillis = 600,
+        ) shouldBe 500
+
+        followingBannerFinishDelayMillis(
+            startedAt = 1_000,
+            now = 1_700,
+            minVisibleMillis = 600,
+        ) shouldBe 0
     }
 
     @Test

@@ -281,6 +281,7 @@ class FollowingScreenModel(
                 successful = bannerSuccessful,
                 loadingIds = bannerLoadingIds,
             )
+            val bannerStartedAt = System.currentTimeMillis()
             trace { "banner after start reason=$reason ${followingLoadingStatus.snapshot.followingTraceLabel()}" }
 
             try {
@@ -309,6 +310,7 @@ class FollowingScreenModel(
                     }
                     .awaitAll()
             } finally {
+                delayFollowingBannerFinish(bannerStartedAt, reason)
                 followingLoadingStatus.finish()
                 trace { "banner finish reason=$reason ${followingLoadingStatus.snapshot.followingTraceLabel()}" }
             }
@@ -397,7 +399,8 @@ class FollowingScreenModel(
         val source = sourceManager.get(subscription.source) as? CatalogueSource
         if (source == null) {
             trace { "loadOne missing source subscription=${subscription.id} source=${subscription.source}" }
-            updateResult(subscription.id, FollowingItemResult.Error(IllegalStateException("Source not found")))
+            updateRefreshFailure(subscription.id, FollowingItemResult.Error(IllegalStateException("Source not found")))
+            markFollowingLoadFinishedWithoutSuccess(subscription.id, "missing-source")
             return SourceLoadResult.Finished
         }
 
@@ -429,6 +432,7 @@ class FollowingScreenModel(
                         "message=${e.message}"
                 }
                 updateRefreshFailure(subscription.id, FollowingItemResult.Error(e))
+                markFollowingLoadFinishedWithoutSuccess(subscription.id, "http-${e.code}")
                 return SourceLoadResult.Finished
             }
             val rateLimit = sourceRateLimitController.open(subscription.source, listOf(subscription.id))
@@ -449,6 +453,7 @@ class FollowingScreenModel(
                     "type=${e::class.simpleName} message=${e.message}"
             }
             updateRefreshFailure(subscription.id, FollowingItemResult.Error(e))
+            markFollowingLoadFinishedWithoutSuccess(subscription.id, e::class.simpleName ?: "error")
             return SourceLoadResult.Finished
         }
     }
@@ -645,6 +650,7 @@ class FollowingScreenModel(
             successful = bannerSuccessful,
             loadingIds = bannerLoadingIds,
         )
+        val bannerStartedAt = System.currentTimeMillis()
         trace { "banner after start retry source=$sourceId ${followingLoadingStatus.snapshot.followingTraceLabel()}" }
         screenModelScope.launchIO {
             try {
@@ -756,9 +762,34 @@ class FollowingScreenModel(
                     }
                 }
             } finally {
+                delayFollowingBannerFinish(bannerStartedAt, "retry-$sourceId")
                 followingLoadingStatus.finish()
                 trace { "banner finish retry source=$sourceId ${followingLoadingStatus.snapshot.followingTraceLabel()}" }
             }
+        }
+    }
+
+    private suspend fun delayFollowingBannerFinish(startedAt: Long, reason: String) {
+        val delayMillis = followingBannerFinishDelayMillis(
+            startedAt = startedAt,
+            now = System.currentTimeMillis(),
+            minVisibleMillis = MIN_BANNER_VISIBLE_MS,
+        )
+        if (delayMillis <= 0) return
+
+        trace {
+            "banner finish delayed reason=$reason delayMs=$delayMillis " +
+                "banner=${followingLoadingStatus.snapshot.followingTraceLabel()}"
+        }
+        delay(delayMillis)
+    }
+
+    private fun markFollowingLoadFinishedWithoutSuccess(subscriptionId: Long, reason: String) {
+        followingLoadingStatus.markFinishedWithoutSuccess(subscriptionId)
+        trace {
+            "banner mark failed subscription=$subscriptionId reason=$reason " +
+                "banner=${followingLoadingStatus.snapshot.followingTraceLabel()} " +
+                "state=${state.value.results.followingTraceSummary()}"
         }
     }
 
@@ -973,6 +1004,7 @@ class FollowingScreenModel(
         private const val SOURCE_RATE_LIMIT_MAX_ATTEMPTS = 6
         private const val SOURCE_RATE_LIMIT_RETRY_TIMEOUT_MS = 30_000L
         private const val COMPLETED_CHECK_BANNER_DURATION_MS = 600L
+        private const val MIN_BANNER_VISIBLE_MS = 600L
         private val COMPLETED_CHECK_REASONS = setOf("refresh-loaded", "refresh-all")
         private val SOURCE_RATE_LIMIT_BACKOFF_SECONDS = longArrayOf(10, 20, 30, 45, 60, 90)
     }

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -53,6 +52,7 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -137,7 +137,7 @@ private fun AuthorRankContent(
         }
     }
 
-    LazyColumn(
+    FastScrollLazyColumn(
         modifier = Modifier.fillMaxSize(),
         state = lazyListState,
         contentPadding = paddingValues,

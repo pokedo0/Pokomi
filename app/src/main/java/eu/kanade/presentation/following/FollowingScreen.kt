@@ -12,7 +12,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.SortByAlpha
+import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,7 +43,7 @@ import kotlinx.coroutines.delay
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.kmk.KMR
-import tachiyomi.presentation.core.components.ScrollbarLazyColumn
+import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -122,7 +122,7 @@ fun FollowingScreen(
                     }
                     IconButton(onClick = { onRankAuthors(currentVisibleAuthorId) }) {
                         Icon(
-                            imageVector = Icons.Outlined.SortByAlpha,
+                            imageVector = Icons.AutoMirrored.Outlined.Sort,
                             contentDescription = stringResource(KMR.strings.action_reorder_authors),
                         )
                     }
@@ -143,7 +143,7 @@ fun FollowingScreen(
                     modifier = Modifier.padding(paddingValues),
                 )
             } else {
-                ScrollbarLazyColumn(
+                FastScrollLazyColumn(
                     state = lazyListState,
                     contentPadding = paddingValues + topSmallPaddingValues,
                 ) {

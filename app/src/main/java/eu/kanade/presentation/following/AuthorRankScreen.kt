@@ -52,6 +52,7 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -70,7 +71,7 @@ fun AuthorRankScreen(
     navigateUp: () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-    val errorMessage = stringResource(KMR.strings.author_rank_save_failed)
+    val errorMessage = stringResource(PKMR.strings.author_rank_save_failed)
 
     LaunchedEffect(state.error) {
         if (state.error != null) {
@@ -82,14 +83,14 @@ fun AuthorRankScreen(
     Scaffold(
         topBar = { scrollBehavior ->
             AppBar(
-                title = stringResource(KMR.strings.author_management),
+                title = stringResource(PKMR.strings.author_management),
                 navigateUp = navigateUp,
                 actions = {
                     TextButton(
                         enabled = !state.saving,
                         onClick = onSave,
                     ) {
-                        Text(text = stringResource(KMR.strings.action_save))
+                        Text(text = stringResource(PKMR.strings.action_save))
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -251,7 +252,7 @@ private fun ReorderableCollectionItemScope.AuthorRankRow(
     ) {
         Icon(
             imageVector = Icons.Filled.DragIndicator,
-            contentDescription = stringResource(KMR.strings.action_reorder_authors),
+            contentDescription = stringResource(PKMR.strings.action_reorder_authors),
             tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier
                 .padding(end = MaterialTheme.padding.medium)
@@ -272,9 +273,9 @@ private fun ReorderableCollectionItemScope.AuthorRankRow(
                 imageVector = if (subscription.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
                 contentDescription = stringResource(
                     if (subscription.pinned) {
-                        KMR.strings.action_unpin_author
+                        PKMR.strings.action_unpin_author
                     } else {
-                        KMR.strings.action_pin_author
+                        PKMR.strings.action_pin_author
                     },
                 ),
             )
@@ -285,7 +286,7 @@ private fun ReorderableCollectionItemScope.AuthorRankRow(
         ) {
             Icon(
                 imageVector = Icons.Outlined.VerticalAlignTop,
-                contentDescription = stringResource(KMR.strings.action_move_author_top),
+                contentDescription = stringResource(PKMR.strings.action_move_author_top),
             )
         }
         IconButton(
@@ -294,7 +295,7 @@ private fun ReorderableCollectionItemScope.AuthorRankRow(
         ) {
             Icon(
                 imageVector = Icons.Outlined.VerticalAlignBottom,
-                contentDescription = stringResource(KMR.strings.action_move_author_bottom),
+                contentDescription = stringResource(PKMR.strings.action_move_author_bottom),
             )
         }
     }

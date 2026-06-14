@@ -118,6 +118,7 @@ import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
@@ -649,11 +650,11 @@ class MangaScreen(
             is MangaScreenModel.Dialog.SwitchAuthorSource -> {
                 AlertDialog(
                     onDismissRequest = onDismissRequest,
-                    title = { Text(text = stringResource(KMR.strings.following_switch_source)) },
+                    title = { Text(text = stringResource(PKMR.strings.following_switch_source)) },
                     text = {
                         Text(
                             text = stringResource(
-                                KMR.strings.following_switch_source_confirmation,
+                                PKMR.strings.following_switch_source_confirmation,
                                 dialog.name,
                             ),
                         )
@@ -665,7 +666,7 @@ class MangaScreen(
                                 screenModel.switchAuthorFollowSource(dialog.name)
                             },
                         ) {
-                            Text(text = stringResource(KMR.strings.following_switch_source_confirm))
+                            Text(text = stringResource(PKMR.strings.following_switch_source_confirm))
                         }
                     },
                     dismissButton = {

@@ -33,6 +33,7 @@ import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.collections.immutable.ImmutableMap
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.domain.source.model.Source as DomainSource
@@ -209,9 +210,9 @@ internal fun GlobalSearchContent(
                 val subscriptionContentDescription = if (showSubscriptionAction) {
                     stringResource(
                         when {
-                            isSubscribedSource -> KMR.strings.following_unsubscribe_author
-                            subscribedSourceId == null -> KMR.strings.following_subscribe_author
-                            else -> KMR.strings.following_switch_source
+                            isSubscribedSource -> PKMR.strings.following_unsubscribe_author
+                            subscribedSourceId == null -> PKMR.strings.following_subscribe_author
+                            else -> PKMR.strings.following_switch_source
                         },
                     )
                 } else {

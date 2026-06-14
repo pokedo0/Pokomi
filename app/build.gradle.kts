@@ -187,6 +187,7 @@ dependencies {
     implementation(projects.i18n)
     // KMK -->
     implementation(projects.i18nKmk)
+    implementation(projects.i18nPkm)
     // KMK <--
     // SY -->
     implementation(projects.i18nSy)

@@ -30,6 +30,7 @@ import tachiyomi.domain.authorSubscription.interactor.UpsertAuthorSubscription
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 import uy.kohesive.injekt.Injekt
@@ -164,8 +165,8 @@ class GlobalSearchScreen(
         if (pendingUnsubscribeQuery != null) {
             AlertDialog(
                 onDismissRequest = { pendingUnsubscribeQuery = null },
-                title = { Text(text = stringResource(KMR.strings.following_unsubscribe_author)) },
-                text = { Text(text = stringResource(KMR.strings.following_unsubscribe_confirmation)) },
+                title = { Text(text = stringResource(PKMR.strings.following_unsubscribe_author)) },
+                text = { Text(text = stringResource(PKMR.strings.following_unsubscribe_confirmation)) },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -176,7 +177,7 @@ class GlobalSearchScreen(
                             }
                         },
                     ) {
-                        Text(text = stringResource(KMR.strings.following_unsubscribe_confirm))
+                        Text(text = stringResource(PKMR.strings.following_unsubscribe_confirm))
                     }
                 },
                 dismissButton = {

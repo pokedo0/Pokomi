@@ -106,6 +106,7 @@ import tachiyomi.domain.manga.interactor.FetchInterval
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 import tachiyomi.presentation.core.components.material.TextButton
@@ -941,9 +942,9 @@ private fun AuthorFollowRow(
                     },
                     contentDescription = stringResource(
                         if (followState.followed) {
-                            KMR.strings.following_unsubscribe_author
+                            PKMR.strings.following_unsubscribe_author
                         } else {
-                            KMR.strings.following_subscribe_author
+                            PKMR.strings.following_subscribe_author
                         },
                     ),
                     modifier = Modifier.size(20.dp),

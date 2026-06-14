@@ -33,6 +33,7 @@ import androidx.compose.ui.util.fastMaxBy
 import dev.icerock.moko.resources.StringResource
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.presentation.core.i18n.stringResource
 import java.math.RoundingMode
 import java.text.NumberFormat
@@ -126,7 +127,7 @@ fun AppStateBanners(
                             stringResource(MR.strings.restoring_backup) + " (${percentFormatter.format(it)})"
                         } ?: stringResource(MR.strings.restoring_backup)
                         followingLoading -> stringResource(
-                            KMR.strings.following_loading_progress,
+                            PKMR.strings.following_loading_progress,
                             followingLoadedAuthors,
                             followingTotalAuthors,
                             percentFormatter.format(progress ?: 0f),

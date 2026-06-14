@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="action_save">儲存</string>
+    <string name="following">關注</string>
+    <string name="author_management">作者管理</string>
+    <string name="action_reorder_authors">排序作者</string>
+    <string name="action_pin_author">置頂作者</string>
+    <string name="action_unpin_author">取消置頂</string>
+    <string name="action_move_author_top">移到頂部</string>
+    <string name="action_move_author_bottom">移到底部</string>
+    <string name="author_rank_save_failed">儲存作者排序失敗</string>
+    <string name="following_empty">沒有關注的作者</string>
+    <string name="following_refresh_author">重新整理作者</string>
+    <string name="following_open_author_search">開啟作者搜尋</string>
+    <string name="following_source_missing">找不到圖源</string>
+    <string name="following_subscribe_author">訂閱作者</string>
+    <string name="following_unsubscribe_author">取消訂閱</string>
+    <string name="following_switch_source">切換訂閱圖源</string>
+    <string name="following_switch_source_confirmation">"%1$s" 已經從另一個圖源訂閱。是否將其切換到目前圖源？</string>
+    <string name="following_switch_source_confirm">切換</string>
+    <string name="following_unsubscribe_confirmation">移除此作者訂閱？</string>
+    <string name="following_unsubscribe_confirm">移除</string>
+    <string name="following_rate_limited">觸發速率限制，正在重試 %1$d/%2$d</string>
+    <string name="following_stalled">多次觸發速率限制後已暫停</string>
+    <string name="following_retry">重試</string>
+    <string name="following_refresh_all">全部重新整理</string>
+    <string name="following_loading_progress">正在載入作者 %1$d/%2$d (%3$s)</string>
+    <string name="pref_following_auto_load_all">一次性載入所有作者</string>
+    <string name="pref_following_auto_load_all_summary">開啟時將所有關注的作者加入佇列，而不是捲動時才載入</string>
+    <string name="pref_following_cache_ttl">快取持續時間</string>
+    <string name="pref_category_following">關注</string>
+    <string name="pref_following_summary">載入、速率限制和快取行為</string>
+    <string name="pref_following_cache_ttl_summary">重新整理快取作者結果之前的小時數。0 = 跳過持續快取，開啟時總是重新取得。</string>
+    <string name="pref_following_auto_refresh_on_switch">切換分頁時自動重新整理</string>
+    <string name="pref_following_auto_refresh_on_switch_summary">切換到「關注」分頁時自動重新整理已載入的作者</string>
+    <string name="pref_translate_author_names">翻譯作者名</string>
+    <string name="pref_translate_author_names_summary">使用 EhTagTranslation 資料庫將羅馬音或英文作者名翻譯為中文或日文</string>
+</resources>

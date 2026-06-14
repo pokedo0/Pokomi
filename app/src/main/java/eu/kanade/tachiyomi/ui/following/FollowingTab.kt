@@ -18,6 +18,7 @@ import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import tachiyomi.domain.authorSubscription.service.FollowingPreferences
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -30,7 +31,7 @@ data object FollowingTab : Tab {
         get() {
             return TabOptions(
                 index = 1u,
-                title = stringResource(KMR.strings.following),
+                title = stringResource(PKMR.strings.following),
                 icon = rememberVectorPainter(Icons.Outlined.BookmarkBorder),
             )
         }

@@ -52,6 +52,7 @@ import exh.assets.ehassets.MangadexLogo
 import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -198,8 +199,8 @@ object SettingsMainScreen : Screen() {
         ),
         // KMK -->
         Item(
-            titleRes = KMR.strings.pref_category_following,
-            subtitleRes = KMR.strings.pref_following_summary,
+            titleRes = PKMR.strings.pref_category_following,
+            subtitleRes = PKMR.strings.pref_following_summary,
             icon = Icons.Outlined.PersonSearch,
             screen = SettingsFollowingScreen,
         ),

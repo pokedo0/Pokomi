@@ -11,8 +11,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.automirrored.outlined.Sort
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +43,7 @@ import kotlinx.coroutines.delay
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -112,18 +113,18 @@ fun FollowingScreen(
     Scaffold(
         topBar = { scrollBehavior ->
             AppBar(
-                title = stringResource(KMR.strings.following),
+                title = stringResource(PKMR.strings.following),
                 actions = {
                     IconButton(onClick = onRefreshAll) {
                         Icon(
                             imageVector = Icons.Outlined.Refresh,
-                            contentDescription = stringResource(KMR.strings.following_refresh_all),
+                            contentDescription = stringResource(PKMR.strings.following_refresh_all),
                         )
                     }
                     IconButton(onClick = { onRankAuthors(currentVisibleAuthorId) }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.Sort,
-                            contentDescription = stringResource(KMR.strings.action_reorder_authors),
+                            contentDescription = stringResource(PKMR.strings.action_reorder_authors),
                         )
                     }
                 },
@@ -139,7 +140,7 @@ fun FollowingScreen(
         ) {
             if (subscriptions.isEmpty()) {
                 EmptyScreen(
-                    stringRes = KMR.strings.following_empty,
+                    stringRes = PKMR.strings.following_empty,
                     modifier = Modifier.padding(paddingValues),
                 )
             } else {
@@ -224,13 +225,13 @@ private fun FollowingAuthorSection(
             IconButton(onClick = { onRefresh(subscription.id) }) {
                 Icon(
                     imageVector = Icons.Outlined.Refresh,
-                    contentDescription = stringResource(KMR.strings.following_refresh_author),
+                    contentDescription = stringResource(PKMR.strings.following_refresh_author),
                 )
             }
             IconButton(onClick = { onOpenSearch(subscription.query) }) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
-                    contentDescription = stringResource(KMR.strings.following_open_author_search),
+                    contentDescription = stringResource(PKMR.strings.following_open_author_search),
                 )
             }
         }
@@ -254,7 +255,7 @@ private fun FollowingAuthorSection(
                 GlobalSearchLoadingResultItem()
                 Text(
                     text = stringResource(
-                        KMR.strings.following_rate_limited,
+                        PKMR.strings.following_rate_limited,
                         result.attempt,
                         result.max,
                     ),
@@ -272,11 +273,11 @@ private fun FollowingAuthorSection(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = stringResource(KMR.strings.following_stalled),
+                    text = stringResource(PKMR.strings.following_stalled),
                     textAlign = TextAlign.Center,
                 )
                 TextButton(onClick = { onRefresh(subscription.id) }) {
-                    Text(text = stringResource(KMR.strings.following_retry))
+                    Text(text = stringResource(PKMR.strings.following_retry))
                 }
             }
             is FollowingItemResult.Success -> GlobalSearchCardRow(

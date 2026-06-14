@@ -23,6 +23,7 @@ import mihon.domain.extensionrepo.interactor.GetExtensionRepoCount
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
@@ -88,8 +89,8 @@ object SettingsBrowseScreen : SearchableSettings {
                     ),
                     Preference.PreferenceItem.SwitchPreference(
                         preference = uiPreferences.translateAuthorNames(),
-                        title = stringResource(KMR.strings.pref_translate_author_names),
-                        subtitle = stringResource(KMR.strings.pref_translate_author_names_summary),
+                        title = stringResource(PKMR.strings.pref_translate_author_names),
+                        subtitle = stringResource(PKMR.strings.pref_translate_author_names_summary),
                         onValueChanged = { enabled ->
                             if (enabled) authorTagTranslator.launchUpdate()
                             true

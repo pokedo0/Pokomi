@@ -4,6 +4,7 @@ import dev.icerock.moko.resources.StringResource
 import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 
 data class RestoreOptions(
     val libraryEntries: Boolean = true,
@@ -80,7 +81,7 @@ data class RestoreOptions(
             // SY <--
             // KMK -->
             Entry(
-                label = KMR.strings.following,
+                label = PKMR.strings.following,
                 getter = RestoreOptions::following,
                 setter = { options, enabled -> options.copy(following = enabled) },
             ),

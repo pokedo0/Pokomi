@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="action_save">保存</string>
+    <string name="following">关注</string>
+    <string name="author_management">作者管理</string>
+    <string name="action_reorder_authors">排序作者</string>
+    <string name="action_pin_author">置顶作者</string>
+    <string name="action_unpin_author">取消置顶</string>
+    <string name="action_move_author_top">移到顶部</string>
+    <string name="action_move_author_bottom">移到底部</string>
+    <string name="author_rank_save_failed">保存作者排序失败</string>
+    <string name="following_empty">没有关注的作者</string>
+    <string name="following_refresh_author">刷新作者</string>
+    <string name="following_open_author_search">打开作者搜索</string>
+    <string name="following_source_missing">未找到图源</string>
+    <string name="following_subscribe_author">订阅作者</string>
+    <string name="following_unsubscribe_author">取消订阅</string>
+    <string name="following_switch_source">切换订阅图源</string>
+    <string name="following_switch_source_confirmation">"%1$s" 已经从另一个图源订阅。是否将其切换到当前图源？</string>
+    <string name="following_switch_source_confirm">切换</string>
+    <string name="following_unsubscribe_confirmation">移除此作者订阅？</string>
+    <string name="following_unsubscribe_confirm">移除</string>
+    <string name="following_rate_limited">触发速率限制，正在重试 %1$d/%2$d</string>
+    <string name="following_stalled">多次触发速率限制后已暂停</string>
+    <string name="following_retry">重试</string>
+    <string name="following_refresh_all">全部刷新</string>
+    <string name="following_loading_progress">正在加载作者 %1$d/%2$d (%3$s)</string>
+    <string name="pref_following_auto_load_all">一次性加载所有作者</string>
+    <string name="pref_following_auto_load_all_summary">打开时将所有关注的作者加入队列，而不是滚动时才加载</string>
+    <string name="pref_following_cache_ttl">缓存持续时间</string>
+    <string name="pref_category_following">关注</string>
+    <string name="pref_following_summary">加载、速率限制和缓存行为</string>
+    <string name="pref_following_cache_ttl_summary">刷新缓存作者结果之前的小时数。0 = 跳过持久缓存，打开时总是重新获取。</string>
+    <string name="pref_following_auto_refresh_on_switch">切换标签页时自动刷新</string>
+    <string name="pref_following_auto_refresh_on_switch_summary">切换到“关注”标签页时自动刷新已加载的作者</string>
+    <string name="pref_translate_author_names">翻译作者名</string>
+    <string name="pref_translate_author_names_summary">使用 EhTagTranslation 数据库将罗马音或英文作者名翻译为中文或日文</string>
+</resources>

@@ -85,7 +85,7 @@ jobs:
         run: |
           echo "COMMIT_LOGS<<{delimiter}
           $(curl -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/komikku-app/komikku/compare/${{ steps.previous_commit.outputs.PREV_RELEASE_SHA }}...${{ steps.current_commit.outputs.CURRENT_SHA }}" \
+            "https://api.github.com/repos/${{ github.repository }}/compare/${{ steps.previous_commit.outputs.PREV_RELEASE_SHA }}...${{ steps.current_commit.outputs.CURRENT_SHA }}" \
             | jq '[.commits[]|{message:(.commit.message | split("\n")), username:.author.login}]' \
             | jq -r '.[]|"- \(.message | first) (@\(.username))"')
           {delimiter}" >> $GITHUB_OUTPUT
@@ -111,14 +111,14 @@ jobs:
         uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
         with:
           path: app/google-services.json
-          contents: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          contents: ${{ secrets.GOOGLE_SERVICES_JSON || '{"project_info":{"project_number":"1234567890","project_id":"dummy-project"},"client":[{"client_info":{"mobilesdk_app_id":"1:1234567890:android:abc123abc123","android_client_info":{"package_name":"app.pokomi"}},"oauth_client":[],"api_key":[{"current_key":"dummy_api_key"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}' }}
           write-mode: overwrite
 
       - name: Write client_secrets.json
         uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
         with:
           path: app/src/main/assets/client_secrets.json
-          contents: ${{ secrets.GOOGLE_CLIENT_SECRETS_JSON }}
+          contents: ${{ secrets.GOOGLE_CLIENT_SECRETS_JSON || '{}' }}
           write-mode: overwrite
 
       - name: Set up gradle
@@ -196,7 +196,7 @@ jobs:
 
             ##### Based on
 
-            **Full Changelog**: [komikku-app/komikku@${{ needs.prepare-build.outputs.PREV_TAG_NAME }}...${{ needs.prepare-build.outputs.VERSION_TAG }}](https://github.com/komikku-app/komikku/compare/${{ needs.prepare-build.outputs.PREV_TAG_NAME }}...${{ needs.prepare-build.outputs.VERSION_TAG }})
+            **Full Changelog**: [${{ github.repository }}@${{ needs.prepare-build.outputs.PREV_TAG_NAME }}...${{ needs.prepare-build.outputs.VERSION_TAG }}](https://github.com/${{ github.repository }}/compare/${{ needs.prepare-build.outputs.PREV_TAG_NAME }}...${{ needs.prepare-build.outputs.VERSION_TAG }})
 
             <!-->
             > [!TIP]

@@ -15,9 +15,9 @@ A free and open source manga reader forked from **Komikku** (based on TachiyomiS
 | | |
 |:---:|:---:|
 | ![Following tab](./.github/readme-images/Snipaste_2026-06-15_22-21-35.jpg) | ![Author search](./.github/readme-images/Snipaste_2026-06-15_22-21-58.jpg) |
-| Subscribe & track your favorite authors; works grouped by author with horizontal scroll | Bilingual author search with native name translations via EhTagTranslation |
+| **Subscribe & track your favorite authors; works grouped by author with horizontal scroll** | **Bilingual author search with native name translations via EhTagTranslation** |
 | ![Author management](./.github/readme-images/Snipaste_2026-06-15_22-22-18.jpg) | ![Library grouped](./.github/readme-images/Snipaste_2026-06-15_22-22-40.jpg) |
-| Drag-to-reorder, pin, and manage all subscribed authors in one place | Library auto-grouped by author with collapsible sections for cleaner browsing |
+| **Drag-to-reorder, pin, and manage all subscribed authors in one place** | **Library auto-grouped by author with collapsible sections for cleaner browsing** |
 
 ### Also includes all Komikku's unique features:
 - `Suggestions` automatically showing source-website's recommendations / suggestions / related to current entry for all sources.

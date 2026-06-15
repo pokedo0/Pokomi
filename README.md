@@ -1,11 +1,11 @@
 <div align="center">
-
+<a href="https://komikku-app.github.io">
+  <img width=200px height=200px src="./.github/readme-images/icon-screen.png"/>
+</a><br/>
 <h1 align="center"> Pokomi </h1>
 
 <div align="left">
 A free and open source manga reader forked from **Komikku** (based on TachiyomiSY & Mihon/Tachiyomi). This fork adds new features on top of Komikku — most notably **Author Following**, a dedicated tab to subscribe and track your favorite authors' latest works across sources.
-
-![screenshots of app](./.github/readme-images/screens.png)
 
 <div align="left">
 

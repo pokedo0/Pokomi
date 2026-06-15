@@ -40,7 +40,9 @@ class AuthorRankScreenModelTest {
             ),
         )
         val model = model(repository)
-        advanceUntilIdle()
+        eventually(2.seconds) {
+            model.state.value.items.map { it.id } shouldBe listOf(1L, 2L, 3L)
+        }
 
         model.removeAuthor(2)
 

@@ -56,6 +56,7 @@ import eu.kanade.tachiyomi.data.coil.TachiyomiImageDecoder
 import eu.kanade.tachiyomi.data.connections.discord.DiscordRPCService
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.sync.SyncDataJob
+import eu.kanade.tachiyomi.data.translation.AuthorTagTranslator
 import eu.kanade.tachiyomi.di.AppModule
 import eu.kanade.tachiyomi.di.PreferenceModule
 import eu.kanade.tachiyomi.di.SYPreferenceModule
@@ -220,6 +221,9 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
 
         // KMK -->
         MangaCoverMetadata.load()
+        if (Injekt.get<UiPreferences>().translateAuthorNames().get()) {
+            Injekt.get<AuthorTagTranslator>().launchUpdate()
+        }
         // KMK <--
 
         // Updates widget update

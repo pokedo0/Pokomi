@@ -1595,6 +1595,34 @@ class LibraryScreenModel(
                     .mapValues { (_, libraryItem) -> libraryItem.fastMap { it.id } }
                 // KMK <--
             }
+            // KMK -->
+            LibraryGroup.BY_AUTHOR -> {
+                val unknownAuthor = context.stringResource(MR.strings.unknown_author)
+                val groupCache = linkedMapOf<String, MutableList</* LibraryItem */ Long>>()
+                forEach { item ->
+                    splitLibraryAuthorNames(
+                        author = item.libraryManga.manga.author,
+                        artist = item.libraryManga.manga.artist,
+                        unknownAuthor = unknownAuthor,
+                    ).forEach { authorName ->
+                        groupCache.getOrPut(authorName) { mutableListOf() }.add(item.id)
+                    }
+                }
+
+                groupCache.keys
+                    .sortedWith(String.CASE_INSENSITIVE_ORDER)
+                    .mapIndexed { index, authorName ->
+                        Category(
+                            id = authorName.hashCode().toLong(),
+                            name = authorName,
+                            order = index.toLong(),
+                            flags = 0,
+                            hidden = false,
+                        ) to groupCache[authorName].orEmpty().distinct()
+                    }
+                    .toMap()
+            }
+            // KMK <--
             else -> emptyMap()
         }.toSortedMap(compareBy { it.order })
     }

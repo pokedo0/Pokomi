@@ -1,8 +1,20 @@
 package eu.kanade.domain
 
+import tachiyomi.data.authorSubscription.AuthorSubscriptionRepositoryImpl
 import tachiyomi.data.libraryUpdateError.LibraryUpdateErrorRepositoryImpl
 import tachiyomi.data.libraryUpdateError.LibraryUpdateErrorWithRelationsRepositoryImpl
 import tachiyomi.data.libraryUpdateErrorMessage.LibraryUpdateErrorMessageRepositoryImpl
+import tachiyomi.domain.authorSubscription.interactor.DeleteAuthorSubscription
+import tachiyomi.domain.authorSubscription.interactor.GetAuthorSubscriptionResultCache
+import tachiyomi.domain.authorSubscription.interactor.GetAuthorSubscriptions
+import tachiyomi.domain.authorSubscription.interactor.MoveAuthorSubscriptionToBottom
+import tachiyomi.domain.authorSubscription.interactor.MoveAuthorSubscriptionToTop
+import tachiyomi.domain.authorSubscription.interactor.ReorderAuthorSubscriptions
+import tachiyomi.domain.authorSubscription.interactor.ToggleAuthorSubscriptionPinned
+import tachiyomi.domain.authorSubscription.interactor.UpdateAuthorSubscriptionRefreshTime
+import tachiyomi.domain.authorSubscription.interactor.UpsertAuthorSubscription
+import tachiyomi.domain.authorSubscription.interactor.UpsertAuthorSubscriptionResultCache
+import tachiyomi.domain.authorSubscription.repository.AuthorSubscriptionRepository
 import tachiyomi.domain.libraryUpdateError.interactor.DeleteLibraryUpdateErrors
 import tachiyomi.domain.libraryUpdateError.interactor.GetLibraryUpdateErrorWithRelations
 import tachiyomi.domain.libraryUpdateError.interactor.GetLibraryUpdateErrors
@@ -22,6 +34,18 @@ import uy.kohesive.injekt.api.get
 class KMKDomainModule : InjektModule {
 
     override fun InjektRegistrar.registerInjectables() {
+        addSingletonFactory<AuthorSubscriptionRepository> { AuthorSubscriptionRepositoryImpl(get()) }
+        addFactory { GetAuthorSubscriptions(get()) }
+        addFactory { GetAuthorSubscriptionResultCache(get()) }
+        addFactory { UpsertAuthorSubscription(get(), get()) }
+        addFactory { UpsertAuthorSubscriptionResultCache(get()) }
+        addFactory { DeleteAuthorSubscription(get(), get()) }
+        addFactory { UpdateAuthorSubscriptionRefreshTime(get()) }
+        addFactory { ReorderAuthorSubscriptions(get(), get()) }
+        addFactory { MoveAuthorSubscriptionToTop(get(), get()) }
+        addFactory { MoveAuthorSubscriptionToBottom(get(), get()) }
+        addFactory { ToggleAuthorSubscriptionPinned(get(), get()) }
+
         addSingletonFactory<LibraryUpdateErrorWithRelationsRepository> {
             LibraryUpdateErrorWithRelationsRepositoryImpl(get())
         }

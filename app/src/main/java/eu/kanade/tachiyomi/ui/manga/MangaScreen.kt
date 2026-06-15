@@ -9,7 +9,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -115,7 +118,9 @@ import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.i18n.sy.SYMR
+import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -458,6 +463,7 @@ class MangaScreen(
             onCoverLoaded = {
                 if (screenModel.themeCoverBased || successState.manga.favorite) screenModel.setPaletteColor(it)
             },
+            onToggleAuthorFollow = screenModel::toggleAuthorFollow,
             coverRatio = coverRatio,
             onPaletteScreenClick = { navigator.push(PaletteScreen(successState.seedColor?.toArgb())) },
             hazeState = hazeState,
@@ -639,6 +645,35 @@ class MangaScreen(
                 ClearMangaDialog(
                     onDismissRequest = onDismissRequest,
                     onConfirm = screenModel::clearManga,
+                )
+            }
+            is MangaScreenModel.Dialog.SwitchAuthorSource -> {
+                AlertDialog(
+                    onDismissRequest = onDismissRequest,
+                    title = { Text(text = stringResource(PKMR.strings.following_switch_source)) },
+                    text = {
+                        Text(
+                            text = stringResource(
+                                PKMR.strings.following_switch_source_confirmation,
+                                dialog.name,
+                            ),
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                onDismissRequest()
+                                screenModel.switchAuthorFollowSource(dialog.name)
+                            },
+                        ) {
+                            Text(text = stringResource(PKMR.strings.following_switch_source_confirm))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = onDismissRequest) {
+                            Text(text = stringResource(MR.strings.action_cancel))
+                        }
+                    },
                 )
             }
             // KMK <--

@@ -118,6 +118,10 @@ private class SyncSettingsSelectorModel(
                 sourceSettings = syncSettings.sourceSettings,
                 privateSettings = syncSettings.privateSettings,
 
+                // KMK -->
+                following = syncSettings.following,
+                // KMK <--
+
                 // SY -->
                 customInfo = syncSettings.customInfo,
                 readEntries = syncSettings.readEntries,
@@ -137,6 +141,10 @@ private class SyncSettingsSelectorModel(
                 extensionRepoSettings = backupOptions.extensionRepoSettings,
                 sourceSettings = backupOptions.sourceSettings,
                 privateSettings = backupOptions.privateSettings,
+
+                // KMK -->
+                following = backupOptions.following,
+                // KMK <--
 
                 // SY -->
                 customInfo = backupOptions.customInfo,

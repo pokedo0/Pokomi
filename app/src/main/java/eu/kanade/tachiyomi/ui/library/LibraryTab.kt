@@ -145,10 +145,15 @@ data object LibraryTab : Tab {
 
         Scaffold(
             topBar = { scrollBehavior ->
+                // KMK -->
+                val useAuthorSections = state.groupType == LibraryGroup.BY_AUTHOR
+                // KMK <--
                 val title = state.getToolbarTitle(
                     defaultTitle = stringResource(MR.strings.label_library),
                     defaultCategoryTitle = stringResource(MR.strings.label_default),
-                    page = state.coercedActiveCategoryIndex,
+                    // KMK -->
+                    page = if (useAuthorSections) -1 else state.coercedActiveCategoryIndex,
+                    // KMK <--
                 )
                 LibraryToolbar(
                     hasActiveFilters = state.hasActiveFilters,
@@ -158,7 +163,9 @@ data object LibraryTab : Tab {
                     onClickSelectAll = screenModel::selectAll,
                     onClickInvertSelection = screenModel::invertSelection,
                     onClickFilter = screenModel::showSettingsDialog,
-                    onClickRefresh = { onClickRefresh(state.activeCategory) },
+                    // KMK -->
+                    onClickRefresh = { onClickRefresh(state.activeCategory.takeUnless { useAuthorSections }) },
+                    // KMK <--
                     onClickGlobalUpdate = { onClickRefresh(null) },
                     onClickOpenRandomManga = {
                         scope.launch {
@@ -311,7 +318,11 @@ data object LibraryTab : Tab {
                         contentPadding = contentPadding,
                         currentPage = state.coercedActiveCategoryIndex,
                         hasActiveFilters = state.hasActiveFilters,
-                        showPageTabs = state.showCategoryTabs || !state.searchQuery.isNullOrEmpty(),
+                        // KMK -->
+                        showPageTabs = (state.showCategoryTabs || !state.searchQuery.isNullOrEmpty()) &&
+                            state.groupType != LibraryGroup.BY_AUTHOR,
+                        useAuthorSections = state.groupType == LibraryGroup.BY_AUTHOR,
+                        // KMK <--
                         onChangeCurrentPage = screenModel::updateActiveCategoryIndex,
                         onClickManga = { navigator.push(MangaScreen(it)) },
                         onContinueReadingClicked = { it: LibraryManga ->
@@ -332,7 +343,11 @@ data object LibraryTab : Tab {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             screenModel.toggleRangeSelection(category, manga)
                         },
-                        onRefresh = { onClickRefresh(state.activeCategory) },
+                        // KMK -->
+                        onRefresh = {
+                            onClickRefresh(state.activeCategory.takeUnless { state.groupType == LibraryGroup.BY_AUTHOR })
+                        },
+                        // KMK <--
                         onGlobalSearchClicked = {
                             navigator.push(GlobalSearchScreen(screenModel.state.value.searchQuery ?: ""))
                         },

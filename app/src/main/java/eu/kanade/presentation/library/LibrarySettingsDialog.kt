@@ -420,6 +420,9 @@ private fun groupTypeDrawableRes(type: Int): Int {
         LibraryGroup.BY_STATUS -> R.drawable.ic_progress_clock_24dp
         LibraryGroup.BY_TRACK_STATUS -> R.drawable.ic_sync_24dp
         LibraryGroup.BY_SOURCE -> R.drawable.ic_browse_filled_24dp
+        // KMK -->
+        LibraryGroup.BY_AUTHOR -> R.drawable.ic_label_24dp
+        // KMK <--
         LibraryGroup.UNGROUPED -> R.drawable.ic_ungroup_24dp
         else -> R.drawable.ic_label_24dp
     }
@@ -436,6 +439,9 @@ private fun ColumnScope.GroupPage(
         buildList {
             add(LibraryGroup.BY_DEFAULT)
             add(LibraryGroup.BY_SOURCE)
+            // KMK -->
+            add(LibraryGroup.BY_AUTHOR)
+            // KMK <--
             add(LibraryGroup.BY_STATUS)
             if (trackers.isNotEmpty()) {
                 add(LibraryGroup.BY_TRACK_STATUS)

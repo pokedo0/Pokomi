@@ -139,7 +139,7 @@ fun LibraryPager(
 }
 
 @Composable
-private fun LibraryPagerEmptyScreen(
+internal fun LibraryPagerEmptyScreen(
     searchQuery: String?,
     hasActiveFilters: Boolean,
     contentPadding: PaddingValues,

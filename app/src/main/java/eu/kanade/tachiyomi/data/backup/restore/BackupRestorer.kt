@@ -7,10 +7,12 @@ import eu.kanade.tachiyomi.data.backup.BackupNotifier
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionRepos
 import eu.kanade.tachiyomi.data.backup.models.BackupFeed
+import eu.kanade.tachiyomi.data.backup.models.BackupFollowing
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSavedSearch
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
+import eu.kanade.tachiyomi.data.backup.restore.restorers.AuthorSubscriptionRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionRepoRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.FeedRestorer
@@ -26,6 +28,7 @@ import kotlinx.coroutines.launch
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -45,6 +48,7 @@ class BackupRestorer(
     // SY <--
     // KMK -->
     private val feedRestorer: FeedRestorer = FeedRestorer(),
+    private val authorSubscriptionRestorer: AuthorSubscriptionRestorer = AuthorSubscriptionRestorer(),
     // KMK <--
 ) {
 
@@ -102,6 +106,11 @@ class BackupRestorer(
         if (options.sourceSettings) {
             restoreAmount += 1
         }
+        // KMK -->
+        if (options.following) {
+            restoreAmount += 1
+        }
+        // KMK <--
 
         coroutineScope {
             if (options.categories) {
@@ -129,6 +138,11 @@ class BackupRestorer(
             if (options.extensionRepoSettings) {
                 restoreExtensionRepos(backup.backupExtensionRepo)
             }
+            // KMK -->
+            if (options.following) {
+                restoreFollowing(backup.backupFollowing)
+            }
+            // KMK <--
 
             // TODO: optionally trigger online library + tracker update
         }
@@ -180,6 +194,24 @@ class BackupRestorer(
         }
     }
     // SY <--
+
+    // KMK -->
+    private fun CoroutineScope.restoreFollowing(backupFollowing: BackupFollowing) = launch {
+        ensureActive()
+        authorSubscriptionRestorer.restoreFollowing(backupFollowing)
+
+        restoreProgress += 1
+        with(notifier) {
+            showRestoreProgress(
+                context.stringResource(PKMR.strings.following),
+                restoreProgress,
+                restoreAmount,
+                isSync,
+            )
+                .show(Notifications.ID_RESTORE_PROGRESS)
+        }
+    }
+    // KMK <--
 
     private fun CoroutineScope.restoreManga(
         backupMangas: List<BackupManga>,

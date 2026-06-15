@@ -1,0 +1,14 @@
+CREATE TABLE author_subscription(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    source INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    query TEXT NOT NULL,
+    normalized_query TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    last_refresh_at INTEGER,
+    sort_order INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX author_subscription_normalized_query_index
+ON author_subscription(normalized_query);

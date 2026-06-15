@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.backup.create.BackupCreator
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
+import eu.kanade.tachiyomi.data.backup.models.BackupFollowing
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
 import eu.kanade.tachiyomi.data.backup.restore.RestoreOptions
@@ -98,6 +99,9 @@ class SyncManager(
             readEntries = syncOptions.readEntries,
             savedSearchesFeeds = syncOptions.savedSearchesFeeds,
             // SY <--
+            // KMK -->
+            following = syncOptions.following,
+            // KMK <--
         )
 
         logcat(LogPriority.DEBUG) { "Begin create backup" }
@@ -116,6 +120,7 @@ class SyncManager(
 
             // KMK -->
             backupFeeds = backupCreator.backupFeeds(backupOptions),
+            backupFollowing = backupCreator.backupFollowing(backupOptions),
             // KMK <--
         )
         logcat(LogPriority.DEBUG) { "End create backup" }
@@ -200,11 +205,16 @@ class SyncManager(
 
             // KMK -->
             backupFeeds = remoteBackup.backupFeeds,
+            backupFollowing = remoteBackup.backupFollowing,
             // KMK <--
         )
 
         // It's local sync no need to restore data. (just update remote data)
-        if (filteredFavorites.isEmpty()) {
+        val shouldRestoreFollowing = syncOptions.following && shouldRestoreFollowing(
+            localFollowing = backup.backupFollowing,
+            remoteFollowing = remoteBackup.backupFollowing,
+        )
+        if (filteredFavorites.isEmpty() && !shouldRestoreFollowing) {
             // update the sync timestamp
             syncPreferences.lastSyncTimestamp().set(Date().time)
             notifier.showSyncSuccess("Sync completed successfully")
@@ -219,10 +229,13 @@ class SyncManager(
                 backupUri,
                 sync = true,
                 options = RestoreOptions(
-                    appSettings = true,
-                    sourceSettings = true,
-                    libraryEntries = true,
-                    extensionRepoSettings = true,
+                    libraryEntries = syncOptions.libraryEntries,
+                    categories = syncOptions.categories,
+                    appSettings = syncOptions.appSettings,
+                    sourceSettings = syncOptions.sourceSettings,
+                    extensionRepoSettings = syncOptions.extensionRepoSettings,
+                    savedSearchesFeeds = syncOptions.savedSearchesFeeds,
+                    following = shouldRestoreFollowing,
                 ),
             )
 
@@ -378,4 +391,14 @@ class SyncManager(
             }
         }
     }
+
+    // KMK -->
+    private fun shouldRestoreFollowing(
+        localFollowing: BackupFollowing,
+        remoteFollowing: BackupFollowing,
+    ): Boolean {
+        return remoteFollowing.lastModifiedAt > localFollowing.lastModifiedAt ||
+            (localFollowing.lastModifiedAt == 0L && remoteFollowing.subscriptions.isNotEmpty())
+    }
+    // KMK <--
 }

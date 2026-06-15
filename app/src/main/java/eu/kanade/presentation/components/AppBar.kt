@@ -51,8 +51,10 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -331,18 +333,36 @@ fun SearchToolbar(
 
             val keyboardController = LocalSoftwareKeyboardController.current
             val focusManager = LocalFocusManager.current
+            var searchFieldValue by remember {
+                mutableStateOf(
+                    TextFieldValue(
+                        text = searchQuery,
+                        selection = TextRange(searchQuery.length),
+                    ),
+                )
+            }
+
+            if (searchFieldValue.text != searchQuery) {
+                searchFieldValue = TextFieldValue(
+                    text = searchQuery,
+                    selection = TextRange(searchQuery.length),
+                )
+            }
 
             val searchAndClearFocus: () -> Unit = f@{
-                if (searchQuery.isBlank()) return@f
-                onSearch(searchQuery)
+                if (searchFieldValue.text.isBlank()) return@f
+                onSearch(searchFieldValue.text)
                 focusManager.clearFocus()
                 keyboardController?.hide()
                 focusManager.moveFocus(FocusDirection.Next)
             }
 
             BasicTextField(
-                value = searchQuery,
-                onValueChange = onChangeSearchQuery,
+                value = searchFieldValue,
+                onValueChange = {
+                    searchFieldValue = it
+                    onChangeSearchQuery(it.text)
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester)
@@ -362,7 +382,7 @@ fun SearchToolbar(
                 interactionSource = interactionSource,
                 decorationBox = { innerTextField ->
                     TextFieldDefaults.DecorationBox(
-                        value = searchQuery,
+                        value = searchFieldValue.text,
                         innerTextField = innerTextField,
                         enabled = true,
                         singleLine = true,

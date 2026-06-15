@@ -1,7 +1,16 @@
 package eu.kanade.presentation.browse
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
@@ -14,6 +23,7 @@ import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchToolbar
 import eu.kanade.presentation.components.BulkSelectionToolbar
+import eu.kanade.tachiyomi.data.translation.TagSuggestion
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.ui.browse.BulkFavoriteScreenModel
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchItemResult
@@ -22,7 +32,10 @@ import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SourceFilter
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.collections.immutable.ImmutableMap
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.presentation.core.components.material.Scaffold
+import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.domain.source.model.Source as DomainSource
 
 @Composable
@@ -37,6 +50,10 @@ fun GlobalSearchScreen(
     onClickSource: (CatalogueSource) -> Unit,
     onClickItem: (Manga) -> Unit,
     onLongClickItem: (Manga) -> Unit,
+    // KMK -->
+    subscribedSourceId: Long?,
+    onClickSubscribeSource: (CatalogueSource) -> Unit,
+    // KMK <--
     // KMK -->
     bulkFavoriteScreenModel: BulkFavoriteScreenModel,
     hasPinnedSources: Boolean,
@@ -92,19 +109,58 @@ fun GlobalSearchScreen(
             }
         },
     ) { paddingValues ->
-        GlobalSearchContent(
-            items = state.filteredItems,
-            contentPadding = paddingValues,
-            getManga = getManga,
-            onClickSource = onClickSource,
-            onClickItem = onClickItem,
-            onLongClickItem = onLongClickItem,
-            // KMK -->
-            selection = bulkFavoriteState.selection,
+        // KMK -->
+        if (state.showTagSuggestions) {
+            GlobalSearchTagSuggestions(
+                suggestions = state.tagSuggestions,
+                contentPadding = paddingValues,
+                onClickSuggestion = { onChangeSearchQuery(it.keyword) },
+            )
+        } else {
             // KMK <--
-        )
+            GlobalSearchContent(
+                items = state.filteredItems,
+                contentPadding = paddingValues,
+                getManga = getManga,
+                onClickSource = onClickSource,
+                onClickItem = onClickItem,
+                onLongClickItem = onLongClickItem,
+                // KMK -->
+                showSubscriptionAction = !state.searchQuery.isNullOrBlank(),
+                subscribedSourceId = subscribedSourceId,
+                onClickSubscribeSource = onClickSubscribeSource,
+                // KMK <--
+                // KMK -->
+                selection = bulkFavoriteState.selection,
+                // KMK <--
+            )
+            // KMK -->
+        }
+        // KMK <--
     }
 }
+
+// KMK -->
+@Composable
+private fun GlobalSearchTagSuggestions(
+    suggestions: List<TagSuggestion>,
+    contentPadding: PaddingValues,
+    onClickSuggestion: (TagSuggestion) -> Unit,
+) {
+    LazyColumn(
+        contentPadding = contentPadding,
+    ) {
+        items(suggestions, key = { "${it.keyword}:${it.hint}" }) { suggestion ->
+            ListItem(
+                headlineContent = { Text(text = suggestion.keyword) },
+                supportingContent = suggestion.hint?.let { { Text(text = it) } },
+                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                modifier = Modifier.clickable { onClickSuggestion(suggestion) },
+            )
+        }
+    }
+}
+// KMK <--
 
 @Composable
 internal fun GlobalSearchContent(
@@ -116,13 +172,24 @@ internal fun GlobalSearchContent(
     onLongClickItem: (Manga) -> Unit,
     fromSourceId: Long? = null,
     // KMK -->
+    showSubscriptionAction: Boolean = false,
+    subscribedSourceId: Long? = null,
+    onClickSubscribeSource: ((CatalogueSource) -> Unit)? = null,
+    // KMK <--
+    // KMK -->
     selection: List<Manga>,
     // KMK <--
 ) {
     LazyColumn(
         contentPadding = contentPadding,
     ) {
-        items.forEach { (source, result) ->
+        val sortedItems = if (subscribedSourceId == null) {
+            items.toList()
+        } else {
+            items.toList().sortedBy { (source, _) -> source.id != subscribedSourceId }
+        }
+
+        sortedItems.forEach { (source, result) ->
             item(key = "global-search-${source.id}") {
                 // KMK -->
                 val domainSource = DomainSource(
@@ -132,6 +199,25 @@ internal fun GlobalSearchContent(
                     supportsLatest = false,
                     isStub = false,
                 )
+                // KMK <--
+                // KMK -->
+                val isSubscribedSource = subscribedSourceId == source.id
+                val subscriptionIcon = when {
+                    !showSubscriptionAction || onClickSubscribeSource == null -> null
+                    isSubscribedSource -> Icons.Filled.Favorite
+                    else -> Icons.Outlined.FavoriteBorder
+                }
+                val subscriptionContentDescription = if (showSubscriptionAction) {
+                    stringResource(
+                        when {
+                            isSubscribedSource -> PKMR.strings.following_unsubscribe_author
+                            subscribedSourceId == null -> PKMR.strings.following_subscribe_author
+                            else -> PKMR.strings.following_switch_source
+                        },
+                    )
+                } else {
+                    null
+                }
                 // KMK <--
 
                 GlobalSearchResultItem(
@@ -150,6 +236,11 @@ internal fun GlobalSearchContent(
                     subtitle = LocaleHelper.getLocalizedDisplayName(source.lang),
                     onClick = { onClickSource(source) },
                     modifier = Modifier.animateItem(),
+                    // KMK -->
+                    subscriptionIcon = subscriptionIcon,
+                    subscriptionContentDescription = subscriptionContentDescription,
+                    onClickSubscription = onClickSubscribeSource?.let { { it(source) } },
+                    // KMK <--
                 ) {
                     when (result) {
                         SearchItemResult.Loading -> {

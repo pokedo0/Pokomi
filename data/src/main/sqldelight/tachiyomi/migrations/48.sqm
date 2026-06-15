@@ -1,0 +1,16 @@
+CREATE TABLE author_subscription_result_cache(
+    subscription_id INTEGER NOT NULL REFERENCES author_subscription(_id) ON DELETE CASCADE,
+    cached_at INTEGER NOT NULL,
+    result_count INTEGER NOT NULL,
+    PRIMARY KEY(subscription_id)
+);
+
+CREATE TABLE author_subscription_result_cache_manga(
+    subscription_id INTEGER NOT NULL REFERENCES author_subscription_result_cache(subscription_id) ON DELETE CASCADE,
+    manga_id INTEGER NOT NULL REFERENCES mangas(_id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    PRIMARY KEY(subscription_id, manga_id)
+);
+
+CREATE INDEX author_subscription_result_cache_manga_subscription_index
+ON author_subscription_result_cache_manga(subscription_id, position);

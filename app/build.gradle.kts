@@ -26,7 +26,7 @@ android {
     namespace = "eu.kanade.tachiyomi"
 
     defaultConfig {
-        applicationId = "app.komikku"
+        applicationId = "app.pokomi"
 
         versionCode = 79
         versionName = "1.13.6"
@@ -38,6 +38,18 @@ android {
         buildConfigField("boolean", "UPDATER_ENABLED", "${Config.enableUpdater}")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    val keystoreFile = file("../komikku-release.jks")
+    if (keystoreFile.exists()) {
+        signingConfigs {
+            create("release") {
+                storeFile = keystoreFile
+                storePassword = "komikku123"
+                keyAlias = "komikku"
+                keyPassword = "komikku123"
+            }
+        }
     }
 
     buildTypes {
@@ -53,6 +65,9 @@ android {
             proguardFiles("proguard-android-optimize.txt", "proguard-rules.pro")
 
             buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLastCommitTime = true)}\"")
+            if (keystoreFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
 
         val commonMatchingFallbacks = listOf(release.name)
@@ -187,6 +202,7 @@ dependencies {
     implementation(projects.i18n)
     // KMK -->
     implementation(projects.i18nKmk)
+    implementation(projects.i18nPkm)
     // KMK <--
     // SY -->
     implementation(projects.i18nSy)

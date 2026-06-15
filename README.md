@@ -1,5 +1,5 @@
 <div align="center">
-<a href="https://komikku-app.github.io">
+<a>
   <img width="200" height="200" src="./.github/readme-images/icon-screen.png"/>
 </a><br/>
 <h1> Pokomi </h1>

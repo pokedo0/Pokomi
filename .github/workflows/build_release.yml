@@ -5,6 +5,12 @@ on:
   push:
     tags:
       - v*
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version tag (e.g. v1.13.6)'
+        required: true
+        default: 'v1.0.0'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,7 +32,11 @@ jobs:
       - name: Get tag name (${{ github.ref }})
         id: get_tag
         run: |
-          version_tag=$(echo ${GITHUB_REF/refs\/tags\//} | sed -r 's/^refs\/(heads|tags)\///' | sed -r 's/[-\/]+/_/g')
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            version_tag="${{ github.event.inputs.version }}"
+          else
+            version_tag=$(echo ${GITHUB_REF/refs\/tags\//} | sed -r 's/^refs\/(heads|tags)\///' | sed -r 's/[-\/]+/_/g')
+          fi
           echo "VERSION_TAG=$version_tag"
           echo "VERSION_TAG=$version_tag" >> $GITHUB_OUTPUT
 
@@ -84,7 +94,7 @@ jobs:
     name: Build release app
     runs-on: 'ubuntu-24.04'
     needs: prepare-build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     steps:
       - name: Clone Repository (${{ needs.prepare-build.outputs.VERSION_TAG }})
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

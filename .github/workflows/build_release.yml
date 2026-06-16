@@ -128,7 +128,7 @@ jobs:
         run: ./gradlew spotlessCheck
 
       - name: Build app
-        run: ./gradlew assembleRelease -Pinclude-telemetry -Penable-updater
+        run: ./gradlew assembleRelease -Pinclude-telemetry -Penable-updater -PversionName=${{ needs.prepare-build.outputs.VERSION_TAG }}
 
       - name: Run unit tests
         run: ./gradlew testReleaseUnitTest

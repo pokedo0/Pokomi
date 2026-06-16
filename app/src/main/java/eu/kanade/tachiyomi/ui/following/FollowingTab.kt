@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.following
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -11,6 +12,7 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.following.FollowingScreen
 import eu.kanade.presentation.util.Tab
@@ -29,10 +31,12 @@ data object FollowingTab : Tab {
     override val options: TabOptions
         @Composable
         get() {
+            val isSelected = LocalTabNavigator.current.current.key == key
+            val icon = if (isSelected) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder
             return TabOptions(
                 index = 1u,
                 title = stringResource(PKMR.strings.following),
-                icon = rememberVectorPainter(Icons.Outlined.BookmarkBorder),
+                icon = rememberVectorPainter(icon),
             )
         }
 

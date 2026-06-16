@@ -172,17 +172,17 @@ jobs:
         run: |
           set -e
 
-          mv app/build/outputs/apk/release/app-universal-release-unsigned-signed.apk Komikku-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
-          mv app/build/outputs/apk/release/app-arm64-v8a-release-unsigned-signed.apk Komikku-arm64-v8a-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
-          mv app/build/outputs/apk/release/app-armeabi-v7a-release-unsigned-signed.apk Komikku-armeabi-v7a-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
-          mv app/build/outputs/apk/release/app-x86-release-unsigned-signed.apk Komikku-x86-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
-          mv app/build/outputs/apk/release/app-x86_64-release-unsigned-signed.apk Komikku-x86_64-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
+          mv app/build/outputs/apk/release/app-universal-release-unsigned-signed.apk Pokomi-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
+          mv app/build/outputs/apk/release/app-arm64-v8a-release-unsigned-signed.apk Pokomi-arm64-v8a-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
+          mv app/build/outputs/apk/release/app-armeabi-v7a-release-unsigned-signed.apk Pokomi-armeabi-v7a-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
+          mv app/build/outputs/apk/release/app-x86-release-unsigned-signed.apk Pokomi-x86-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
+          mv app/build/outputs/apk/release/app-x86_64-release-unsigned-signed.apk Pokomi-x86_64-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
 
       - name: Create release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           tag_name: ${{ needs.prepare-build.outputs.VERSION_TAG }}
-          name: Komikku ${{ needs.prepare-build.outputs.VERSION_TAG }}
+          name: Pokomi ${{ needs.prepare-build.outputs.VERSION_TAG }}
           body: |
             [![GitHub downloads](https://img.shields.io/github/downloads/${{ github.repository }}/${{ needs.prepare-build.outputs.VERSION_TAG }}/total?label=Downloaded&labelColor=27303D&color=0D1117&logo=github&logoColor=FFFFFF&style=flat)](https://github.com/${{ github.repository }}/releases/${{ needs.prepare-build.outputs.VERSION_TAG }})
             #### What's Changed
@@ -201,13 +201,13 @@ jobs:
             <!-->
             > [!TIP]
             >
-            > ### If you are unsure which version to download then go with `Komikku-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk`
+            > ### If you are unsure which version to download then go with `Pokomi-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk`
           files: |
-            Komikku-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
-            Komikku-arm64-v8a-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
-            Komikku-armeabi-v7a-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
-            Komikku-x86-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
-            Komikku-x86_64-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
+            Pokomi-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
+            Pokomi-arm64-v8a-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
+            Pokomi-armeabi-v7a-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
+            Pokomi-x86-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
+            Pokomi-x86_64-${{ needs.prepare-build.outputs.VERSION_TAG }}.apk
           draft: true
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}

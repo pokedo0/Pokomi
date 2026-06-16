@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="288dp"
-    android:height="288dp"
-    android:viewportWidth="860"
-    android:viewportHeight="860">
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="600"
+    android:viewportHeight="600">
     <group
-        android:translateX="-82"
-        android:translateY="-82">
+        android:translateX="-212"
+        android:translateY="-212">
         <!-- Yellow circle (outer ring) -->
         <path
             android:fillColor="#ff9100"

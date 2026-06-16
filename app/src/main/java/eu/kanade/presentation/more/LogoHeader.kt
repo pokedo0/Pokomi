@@ -20,13 +20,18 @@ fun LogoHeader() {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        val painter = if (androidx.compose.foundation.isSystemInDarkTheme()) {
+            painterResource(R.drawable.ic_logo_dark)
+        } else {
+            painterResource(R.drawable.ic_logo_light)
+        }
         Icon(
-            painter = painterResource(R.drawable.ic_komikku),
+            painter = painter,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = androidx.compose.ui.graphics.Color.Unspecified,
             modifier = Modifier
                 .padding(vertical = 56.dp)
-                .size(64.dp),
+                .size(100.dp),
         )
 
         HorizontalDivider()

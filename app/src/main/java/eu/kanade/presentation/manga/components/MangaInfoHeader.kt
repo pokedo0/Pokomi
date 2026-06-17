@@ -93,6 +93,7 @@ import com.mikepenz.markdown.model.markdownAnnotatorConfig
 import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.components.DropdownMenu
+import eu.kanade.presentation.following.rememberAuthorNameTranslator
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.manga.AuthorFollowState
@@ -855,30 +856,31 @@ private fun AuthorFollowRows(
     onSearch: (query: String, global: Boolean) -> Unit,
     onLongClick: (String) -> Unit,
 ) {
+    val translateAuthorName = rememberAuthorNameTranslator()
     val authorName = author?.trim()?.takeIf { it.isNotBlank() }
     val artistName = artist?.trim()?.takeIf { it.isNotBlank() }
 
     Column {
         AuthorFollowRow(
             icon = Icons.Filled.PersonOutline,
-            text = authorName ?: stringResource(MR.strings.unknown_author),
+            text = authorName?.let { translateAuthorName(it) } ?: stringResource(MR.strings.unknown_author),
             followState = authorFollowStates.firstOrNull { it.name == authorName },
             onToggleAuthorFollow = onToggleAuthorFollow,
             textAlign = textAlign,
-            onSearch = onSearch,
-            onLongClick = onLongClick,
+            onSearch = { query, global -> onSearch(authorName ?: query, global) },
+            onLongClick = { onLongClick(authorName ?: it) },
         )
         artistName
             ?.takeIf { it != authorName }
             ?.let { artist ->
                 AuthorFollowRow(
                     icon = Icons.Filled.Brush,
-                    text = artist,
+                    text = translateAuthorName(artist),
                     followState = authorFollowStates.firstOrNull { it.name == artist },
                     onToggleAuthorFollow = onToggleAuthorFollow,
                     textAlign = textAlign,
-                    onSearch = onSearch,
-                    onLongClick = onLongClick,
+                    onSearch = { query, global -> onSearch(artist, global) },
+                    onLongClick = { onLongClick(artist) },
                 )
             }
     }

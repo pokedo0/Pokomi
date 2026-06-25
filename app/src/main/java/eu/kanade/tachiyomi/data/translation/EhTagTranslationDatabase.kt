@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.data.translation
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
@@ -21,6 +22,21 @@ data class EhTagTranslationDatabase(
         .associate { normalize(it.keyword) to it.translation }
 
     fun translateAuthor(name: String): String? = authorTranslations[normalize(name)]
+
+    fun translateAuthorOrNamespacedTag(name: String): String? {
+        val separatorIndex = name.indexOf(':')
+        if (separatorIndex <= 0) return translateAuthor(name)
+
+        val namespace = name.substring(0, separatorIndex)
+        val normalizedNamespace = normalize(namespace)
+        if (normalizedNamespace !in TAG_NAMESPACES) return null
+
+        val keyword = name.substring(separatorIndex + 1)
+        if (keyword.isBlank()) return null
+
+        return tagTranslations[NamespacedTag(normalizedNamespace, normalize(keyword))]
+            ?.let { "$namespace:$it" }
+    }
 
     fun suggest(query: String, includeTranslations: Boolean, limit: Int): List<TagSuggestion> {
         val keyword = normalize(query)
@@ -79,6 +95,18 @@ data class EhTagTranslationDatabase(
         val adjustedScore: Float = score / namespaceScore
     }
 
+    private data class NamespacedTag(
+        val namespace: String,
+        val keyword: String,
+    )
+
+    @Transient
+    private val tagTranslations: Map<NamespacedTag, String> = entries
+        .asSequence()
+        .filter { it.namespace in TAG_NAMESPACES }
+        .filter { it.translation.isNotEmpty() }
+        .associate { NamespacedTag(it.namespace, normalize(it.keyword)) to it.translation }
+
     @Serializable
     private data class TagDatabase(val data: List<NamespaceData> = emptyList())
 
@@ -95,6 +123,20 @@ data class EhTagTranslationDatabase(
         val Empty = EhTagTranslationDatabase(emptyList())
 
         private val AUTHOR_NAMESPACES = setOf("artist", "group")
+        private val TAG_NAMESPACES = setOf(
+            "female",
+            "male",
+            "mixed",
+            "location",
+            "language",
+            "other",
+            "group",
+            "artist",
+            "cosplayer",
+            "parody",
+            "character",
+            "reclass",
+        )
         private val NAMESPACE_SCORES = mapOf(
             "location" to 10f,
             "other" to 10f,

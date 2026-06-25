@@ -72,6 +72,23 @@ class EhTagTranslationSuggesterTest {
         )
     }
 
+    @Test
+    fun `namespaced tag translations keep namespace and translate keyword`() {
+        val database = EhTagTranslationDatabase.parse(json, sampleDatabase)
+
+        database.translateAuthorOrNamespacedTag("artist:michiyon") shouldBe "artist:みちょん"
+        database.translateAuthorOrNamespacedTag("character:michiko") shouldBe "character:美智子（红蝶）"
+    }
+
+    @Test
+    fun `namespaced tag translations ignore unknown namespaces and missing keywords`() {
+        val database = EhTagTranslationDatabase.parse(json, sampleDatabase)
+
+        database.translateAuthorOrNamespacedTag("unknown:michiko") shouldBe null
+        database.translateAuthorOrNamespacedTag("artist:missing") shouldBe null
+        database.translateAuthorOrNamespacedTag("artist:") shouldBe null
+    }
+
     private val sampleDatabase = """
         {
           "data": [

@@ -50,8 +50,8 @@ class AuthorTagTranslator(
     val translations: StateFlow<Map<String, String>> = translationsFlow.asStateFlow()
     // KMK <--
 
-    /** Returns the translated name, or [name] unchanged when no translation exists. */
-    fun translate(name: String): String = databaseFlow.value.translateAuthor(name) ?: name
+    /** Returns the translated author/tag name, or [name] unchanged when no translation exists. */
+    fun translate(name: String): String = databaseFlow.value.translateAuthorOrNamespacedTag(name) ?: name
 
     fun suggest(query: String, includeTranslations: Boolean, limit: Int = 15): List<TagSuggestion> {
         return databaseFlow.value.suggest(query, includeTranslations, limit)

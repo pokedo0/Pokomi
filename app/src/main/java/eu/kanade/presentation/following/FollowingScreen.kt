@@ -204,6 +204,8 @@ private fun FollowingAuthorSection(
     val backgroundColor by animateColorAsState(
         targetValue = if (highlighted) {
             MaterialTheme.colorScheme.secondaryContainer
+        } else if (subscription.pinned) {
+            PinnedAuthorBackgroundColor
         } else {
             Color.Transparent
         },
@@ -211,7 +213,9 @@ private fun FollowingAuthorSection(
     )
 
     Column(
-        modifier = modifier.background(backgroundColor),
+        modifier = modifier
+            .fillMaxWidth()
+            .background(backgroundColor),
     ) {
         CollapsibleAuthorHeader(
             title = displayName,
@@ -320,3 +324,4 @@ private fun FollowingItemResult?.isRefreshing(): Boolean {
 }
 
 private const val AUTHOR_HIGHLIGHT_DURATION_MS = 2_000L
+private val PinnedAuthorBackgroundColor = Color(0xFFedeff5)

@@ -13,13 +13,23 @@ class UpsertAuthorSubscription(
         val normalizedQuery = AuthorSubscription.normalizeQuery(query)
         require(normalizedQuery.isNotBlank()) { "Author subscription query must not be blank" }
 
-        return repository.upsert(
+        val existing = repository.getByNormalizedQuery(normalizedQuery)
+        val id = repository.upsert(
             source = source,
             name = name.trim().ifBlank { query.trim() },
             query = query.trim(),
             normalizedQuery = normalizedQuery,
-        ).also {
-            preferences.lastModifiedAt().set(System.currentTimeMillis())
+        )
+
+        if (existing == null) {
+            val items = repository.getAll()
+            repository.updateOrderIfChanged(
+                current = items,
+                updated = moveToTop(items, id),
+            )
         }
+
+        preferences.lastModifiedAt().set(System.currentTimeMillis())
+        return id
     }
 }

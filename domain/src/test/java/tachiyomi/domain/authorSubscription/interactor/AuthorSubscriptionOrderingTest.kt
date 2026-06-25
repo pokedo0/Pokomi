@@ -292,17 +292,53 @@ class AuthorSubscriptionOrderingTest {
         preferences.lastModifiedAt().get() shouldBe 0L
     }
 
+    @Test
+    fun `upsert interactor moves new author to top of unpinned block`() = runTest {
+        val repository = FakeAuthorSubscriptionRepository(
+            items = mutableListOf(
+                author(id = 1, pinned = true, sortOrder = 0),
+                author(id = 2, pinned = true, sortOrder = 1),
+                author(id = 3, sortOrder = 2),
+                author(id = 4, sortOrder = 3),
+            ),
+        )
+        val preferences = FollowingPreferences(InMemoryPreferenceStore())
+
+        UpsertAuthorSubscription(repository, preferences).await(source = 1, query = "New Author")
+
+        repository.orderUpdates.single().map { it.id } shouldBe listOf(1L, 2L, 5L, 3L, 4L)
+        repository.orderUpdates.single().map { it.sortOrder } shouldBe listOf(0L, 1L, 2L, 3L, 4L)
+        repository.orderUpdates.single().map { it.pinned } shouldBe listOf(true, true, false, false, false)
+    }
+
+    @Test
+    fun `upsert interactor keeps existing author order`() = runTest {
+        val repository = FakeAuthorSubscriptionRepository(
+            items = mutableListOf(
+                author(id = 1, sortOrder = 0),
+                author(id = 2, sortOrder = 1, query = "Existing Author"),
+            ),
+        )
+        val preferences = FollowingPreferences(InMemoryPreferenceStore())
+
+        UpsertAuthorSubscription(repository, preferences).await(source = 2, query = "Existing Author")
+
+        repository.orderUpdates shouldBe emptyList()
+        repository.items.map { it.id } shouldBe listOf(1L, 2L)
+    }
+
     private fun author(
         id: Long,
         pinned: Boolean = false,
         sortOrder: Long = id,
+        query: String = "Author $id",
     ): AuthorSubscription {
         return AuthorSubscription(
             id = id,
             source = 1,
             name = "Author $id",
-            query = "Author $id",
-            normalizedQuery = "author $id",
+            query = query,
+            normalizedQuery = AuthorSubscription.normalizeQuery(query),
             createdAt = 0,
             updatedAt = 0,
             lastRefreshAt = null,
@@ -311,19 +347,47 @@ class AuthorSubscriptionOrderingTest {
         )
     }
 
-    private class FakeAuthorSubscriptionRepository : AuthorSubscriptionRepository {
+    private class FakeAuthorSubscriptionRepository(
+        val items: MutableList<AuthorSubscription> = mutableListOf(),
+    ) : AuthorSubscriptionRepository {
 
         val orderUpdates = mutableListOf<List<AuthorSubscriptionOrderUpdate>>()
 
         override fun subscribeAll(): Flow<List<AuthorSubscription>> = emptyFlow()
 
-        override suspend fun getAll(): List<AuthorSubscription> = emptyList()
+        override suspend fun getAll(): List<AuthorSubscription> = items
+            .sortedWith(compareByDescending<AuthorSubscription> { it.pinned }.thenBy { it.sortOrder }.thenBy { it.id })
 
-        override suspend fun getById(id: Long): AuthorSubscription? = null
+        override suspend fun getById(id: Long): AuthorSubscription? = items.find { it.id == id }
 
-        override suspend fun getByNormalizedQuery(normalizedQuery: String): AuthorSubscription? = null
+        override suspend fun getByNormalizedQuery(normalizedQuery: String): AuthorSubscription? {
+            return items.find { it.normalizedQuery == normalizedQuery }
+        }
 
-        override suspend fun upsert(source: Long, name: String, query: String, normalizedQuery: String): Long = 0
+        override suspend fun upsert(source: Long, name: String, query: String, normalizedQuery: String): Long {
+            val existing = getByNormalizedQuery(normalizedQuery)
+            if (existing != null) {
+                val index = items.indexOfFirst { it.id == existing.id }
+                items[index] = existing.copy(source = source, name = name, query = query)
+                return existing.id
+            }
+
+            val nextId = (items.maxOfOrNull { it.id } ?: 0L) + 1
+            val nextSortOrder = (items.maxOfOrNull { it.sortOrder } ?: -1L) + 1
+            items += AuthorSubscription(
+                id = nextId,
+                source = source,
+                name = name,
+                query = query,
+                normalizedQuery = normalizedQuery,
+                createdAt = 0,
+                updatedAt = 0,
+                lastRefreshAt = null,
+                sortOrder = nextSortOrder,
+                pinned = false,
+            )
+            return nextId
+        }
 
         override suspend fun updateLastRefreshAt(id: Long, lastRefreshAt: Long) = Unit
 

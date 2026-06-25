@@ -7,12 +7,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -198,6 +200,7 @@ private fun FollowingAuthorSection(
         onVisible(subscription.id)
     }
 
+    val refreshing = result.isRefreshing()
     val backgroundColor by animateColorAsState(
         targetValue = if (highlighted) {
             MaterialTheme.colorScheme.secondaryContainer
@@ -222,11 +225,21 @@ private fun FollowingAuthorSection(
                 bottom = 0.dp,
             ),
         ) {
-            IconButton(onClick = { onRefresh(subscription.id) }) {
-                Icon(
-                    imageVector = Icons.Outlined.Refresh,
-                    contentDescription = stringResource(PKMR.strings.following_refresh_author),
-                )
+            IconButton(
+                onClick = { onRefresh(subscription.id) },
+                enabled = !refreshing,
+            ) {
+                if (refreshing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.Refresh,
+                        contentDescription = stringResource(PKMR.strings.following_refresh_author),
+                    )
+                }
             }
             IconButton(onClick = { onOpenSearch(subscription.query) }) {
                 Icon(
@@ -293,6 +306,16 @@ private fun FollowingAuthorSection(
             )
             is FollowingItemResult.Error -> GlobalSearchErrorResultItem(result.throwable.message)
         }
+    }
+}
+
+private fun FollowingItemResult?.isRefreshing(): Boolean {
+    return when (this) {
+        FollowingItemResult.Loading,
+        is FollowingItemResult.RateLimited,
+        -> true
+        is FollowingItemResult.Success -> refreshing
+        else -> false
     }
 }
 

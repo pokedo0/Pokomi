@@ -1,15 +1,29 @@
 package eu.kanade.presentation.following
 
+import android.graphics.Typeface
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.StyleSpan
+import android.view.HapticFeedbackConstants
+import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -26,14 +40,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxState
-import androidx.compose.material3.SwipeToDismissBoxValue.EndToStart
-import androidx.compose.material3.SwipeToDismissBoxValue.Settled
-import androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,7 +50,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.tachiyomi.ui.following.AuthorRankScreenModel
@@ -51,12 +64,12 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.i18n.MR
-import tachiyomi.i18n.kmk.KMR
 import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import kotlin.math.roundToInt
 
 @Composable
 fun AuthorRankScreen(
@@ -123,6 +136,7 @@ private fun AuthorRankContent(
     val initialIndex = state.items.indexOfFirst { it.id == state.initialAuthorId }.coerceAtLeast(0)
     val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
     val translateAuthorName = rememberAuthorNameTranslator()
+    val context = LocalContext.current
     val reorderableState = rememberReorderableLazyListState(lazyListState, paddingValues) { from, to ->
         if (!state.saving) {
             onReorder(from.index, to.index)
@@ -148,14 +162,22 @@ private fun AuthorRankContent(
             key = { _, item -> item.id },
         ) { index, subscription ->
             ReorderableItem(reorderableState, subscription.id) { isDragging ->
+                val displayName = translateAuthorName(subscription.name)
+                val removedMessage = stringResource(PKMR.strings.author_removed, displayName)
+                val removedToastMessage = remember(removedMessage, displayName) {
+                    removedMessage.boldSubstring(displayName)
+                }
                 Column(modifier = Modifier.animateItem()) {
                     SwipeToDeleteAuthor(
                         enabled = !state.saving,
-                        onRemove = { onRemoveAuthor(subscription.id) },
+                        onRemove = {
+                            onRemoveAuthor(subscription.id)
+                            Toast.makeText(context.applicationContext, removedToastMessage, Toast.LENGTH_SHORT).show()
+                        },
                     ) {
                         AuthorRankRow(
                             subscription = subscription,
-                            displayName = translateAuthorName(subscription.name),
+                            displayName = displayName,
                             enabled = !state.saving,
                             onTogglePinned = { onTogglePinned(subscription.id) },
                             onMoveToTop = { onMoveToTop(subscription.id) },
@@ -179,49 +201,122 @@ private fun SwipeToDeleteAuthor(
     onRemove: () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = {
-            if (it == EndToStart) {
-                onRemove()
-            }
-            it == EndToStart
+    val density = LocalDensity.current
+    val view = LocalView.current
+    var offsetX by remember { mutableStateOf(0f) }
+    var animatingBack by remember { mutableStateOf(false) }
+    var thresholdFeedbackSent by remember { mutableStateOf(false) }
+    val animatedOffsetX by animateFloatAsState(
+        targetValue = if (animatingBack) 0f else offsetX,
+        animationSpec = if (animatingBack) {
+            spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMediumLow,
+            )
+        } else {
+            snap()
         },
-        positionalThreshold = { totalDistance -> totalDistance * 0.25f },
+        label = "authorDeleteOffset",
+        finishedListener = {
+            if (animatingBack) {
+                offsetX = 0f
+                animatingBack = false
+                thresholdFeedbackSent = false
+            }
+        },
     )
 
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = { AuthorDeleteBackground(dismissState) },
-        enableDismissFromStartToEnd = false,
-        enableDismissFromEndToStart = enabled,
+    LaunchedEffect(enabled) {
+        if (!enabled) {
+            offsetX = 0f
+            animatingBack = false
+        }
+    }
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = AUTHOR_RANK_ROW_MIN_HEIGHT),
     ) {
-        content()
+        val deleteThresholdPx = with(density) {
+            (maxWidth * AUTHOR_DELETE_SWIPE_THRESHOLD_FRACTION)
+                .coerceIn(AUTHOR_DELETE_SWIPE_MIN_THRESHOLD, AUTHOR_DELETE_SWIPE_MAX_THRESHOLD)
+                .toPx()
+        }
+        val maxOffsetPx = (deleteThresholdPx * AUTHOR_DELETE_SWIPE_MAX_OFFSET_MULTIPLIER)
+            .coerceAtMost(with(density) { maxWidth.toPx() })
+
+        AuthorDeleteBackground(
+            revealed = animatedOffsetX < 0f,
+            readyToDelete = animatedOffsetX <= -deleteThresholdPx,
+        )
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
+                .pointerInput(enabled, deleteThresholdPx, maxOffsetPx) {
+                    if (!enabled) return@pointerInput
+
+                    detectHorizontalDragGestures(
+                        onDragStart = {
+                            offsetX = animatedOffsetX
+                            animatingBack = false
+                            thresholdFeedbackSent = false
+                        },
+                        onDragEnd = {
+                            if (offsetX <= -deleteThresholdPx) {
+                                onRemove()
+                            } else {
+                                animatingBack = true
+                            }
+                        },
+                        onDragCancel = {
+                            animatingBack = true
+                        },
+                        onHorizontalDrag = { change, dragAmount ->
+                            if (dragAmount < 0f || offsetX < 0f) {
+                                change.consume()
+                                animatingBack = false
+                                offsetX = (offsetX + dragAmount).coerceIn(-maxOffsetPx, 0f)
+                                val readyToDelete = offsetX <= -deleteThresholdPx
+                                if (readyToDelete && !thresholdFeedbackSent) {
+                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                    thresholdFeedbackSent = true
+                                } else if (!readyToDelete) {
+                                    thresholdFeedbackSent = false
+                                }
+                            }
+                        },
+                    )
+                },
+        ) {
+            content()
+        }
     }
 }
 
 @Composable
-private fun AuthorDeleteBackground(dismissState: SwipeToDismissBoxState) {
-    val direction = dismissState.dismissDirection
-    val targetState = dismissState.targetValue
+private fun BoxScope.AuthorDeleteBackground(
+    revealed: Boolean,
+    readyToDelete: Boolean,
+) {
     val backgroundColor by animateColorAsState(
-        when (direction) {
-            EndToStart ->
-                MaterialTheme.colorScheme.errorContainer
-                    .copy(alpha = if (targetState == Settled) 0.45f else 1f)
-            Settled,
-            StartToEnd,
-            -> MaterialTheme.colorScheme.surface
+        targetValue = if (revealed) {
+            MaterialTheme.colorScheme.errorContainer
+                .copy(alpha = if (readyToDelete) 1f else 0.45f)
+        } else {
+            MaterialTheme.colorScheme.surface
         },
+        label = "authorDeleteBackground",
     )
 
     Box(
         modifier = Modifier
-            .fillMaxSize()
+            .matchParentSize()
             .background(backgroundColor)
             .padding(horizontal = 20.dp),
         contentAlignment = Alignment.CenterEnd,
     ) {
-        if (direction == EndToStart) {
+        if (revealed) {
             Icon(
                 imageVector = Icons.Outlined.Delete,
                 contentDescription = stringResource(MR.strings.action_delete),
@@ -230,6 +325,24 @@ private fun AuthorDeleteBackground(dismissState: SwipeToDismissBoxState) {
         }
     }
 }
+
+private fun String.boldSubstring(substring: String): SpannableString {
+    val spannable = SpannableString(this)
+    val start = indexOf(substring).takeIf { it >= 0 } ?: return spannable
+    spannable.setSpan(
+        StyleSpan(Typeface.BOLD),
+        start,
+        start + substring.length,
+        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+    )
+    return spannable
+}
+
+private const val AUTHOR_DELETE_SWIPE_THRESHOLD_FRACTION = 0.42f
+private const val AUTHOR_DELETE_SWIPE_MAX_OFFSET_MULTIPLIER = 1.12f
+private val AUTHOR_DELETE_SWIPE_MIN_THRESHOLD = 144.dp
+private val AUTHOR_DELETE_SWIPE_MAX_THRESHOLD = 280.dp
+private val AUTHOR_RANK_ROW_MIN_HEIGHT = 72.dp
 
 @Composable
 private fun ReorderableCollectionItemScope.AuthorRankRow(
@@ -244,7 +357,7 @@ private fun ReorderableCollectionItemScope.AuthorRankRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 72.dp)
+            .heightIn(min = AUTHOR_RANK_ROW_MIN_HEIGHT)
             .background(MaterialTheme.colorScheme.surface)
             .clickable(enabled = enabled, onClick = {})
             .padding(horizontal = MaterialTheme.padding.medium),

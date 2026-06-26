@@ -2,9 +2,11 @@ package eu.kanade.presentation.following
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.browse.components.GlobalSearchCardRow
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
@@ -114,8 +117,14 @@ fun FollowingScreen(
 
     Scaffold(
         topBar = { scrollBehavior ->
+            val title = stringResource(PKMR.strings.following)
             AppBar(
-                title = stringResource(PKMR.strings.following),
+                titleContent = {
+                    FollowingAppBarTitle(
+                        title = title,
+                        authorCount = subscriptions.size,
+                    )
+                },
                 actions = {
                     IconButton(onClick = onRefreshAll) {
                         Icon(
@@ -181,6 +190,31 @@ fun FollowingScreen(
 }
 
 @Composable
+private fun FollowingAppBarTitle(
+    title: String,
+    authorCount: Int,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        if (authorCount > 0) {
+            Text(
+                text = " ($authorCount)",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+@Composable
 private fun FollowingAuthorSection(
     subscription: AuthorSubscription,
     displayName: String,
@@ -201,11 +235,16 @@ private fun FollowingAuthorSection(
     }
 
     val refreshing = result.isRefreshing()
+    val pinnedAuthorBackgroundColor = if (isSystemInDarkTheme()) {
+        PinnedAuthorDarkBackgroundColor
+    } else {
+        PinnedAuthorLightBackgroundColor
+    }
     val backgroundColor by animateColorAsState(
         targetValue = if (highlighted) {
             MaterialTheme.colorScheme.secondaryContainer
         } else if (subscription.pinned) {
-            PinnedAuthorBackgroundColor
+            pinnedAuthorBackgroundColor
         } else {
             Color.Transparent
         },
@@ -324,4 +363,5 @@ private fun FollowingItemResult?.isRefreshing(): Boolean {
 }
 
 private const val AUTHOR_HIGHLIGHT_DURATION_MS = 2_000L
-private val PinnedAuthorBackgroundColor = Color(0xFFedeff5)
+private val PinnedAuthorLightBackgroundColor = Color(0xFFEDEFF5)
+private val PinnedAuthorDarkBackgroundColor = Color(0xFF27292b)

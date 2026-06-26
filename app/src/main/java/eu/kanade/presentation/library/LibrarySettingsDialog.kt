@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.map
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.library.model.LibraryAuthorGroupMode
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryGroup
 import tachiyomi.domain.library.model.LibrarySort
@@ -51,6 +52,7 @@ import tachiyomi.domain.library.model.sort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.components.BaseSortItem
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -468,8 +470,33 @@ private fun ColumnScope.GroupPage(
             },
         )
     }
+
+    // PKM -->
+    if (screenModel.grouping == LibraryGroup.BY_AUTHOR) {
+        val authorGroupMode by screenModel.libraryPreferences.libraryAuthorGroupMode().collectAsState()
+        SettingsChipRow(PKMR.strings.pref_library_author_group_mode) {
+            authorGroupModes.fastForEach { (titleRes, mode) ->
+                FilterChip(
+                    selected = authorGroupMode == mode,
+                    onClick = {
+                        screenModel.libraryPreferences.libraryAuthorGroupMode().set(mode)
+                    },
+                    label = { Text(stringResource(titleRes)) },
+                )
+            }
+        }
+    }
+    // PKM <--
 }
 // SY <--
+
+// PKM -->
+private val authorGroupModes = listOf(
+    PKMR.strings.library_author_group_artist to LibraryAuthorGroupMode.ARTIST,
+    PKMR.strings.library_author_group_group to LibraryAuthorGroupMode.GROUP,
+    PKMR.strings.library_author_group_artist_or_group to LibraryAuthorGroupMode.ARTIST_OR_GROUP,
+)
+// PKM <--
 
 // KMK -->
 @Composable

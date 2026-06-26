@@ -36,4 +36,8 @@
     <string name="pref_following_auto_refresh_on_switch_summary">Automatically refresh loaded authors when switching to the Following tab</string>
     <string name="pref_translate_author_names">Translate author names</string>
     <string name="pref_translate_author_names_summary">Translate romanized or English author names into Chinese or Japanese using the EhTagTranslation database</string>
+    <string name="pref_library_author_group_mode">Author grouping detail</string>
+    <string name="library_author_group_artist">Artist</string>
+    <string name="library_author_group_group">Group</string>
+    <string name="library_author_group_artist_or_group">Artist + group</string>
 </resources>

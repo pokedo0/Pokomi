@@ -8,6 +8,7 @@
     <string name="action_unpin_author">取消置顶</string>
     <string name="action_move_author_top">移到顶部</string>
     <string name="action_move_author_bottom">移到底部</string>
+    <string name="author_removed">%1$s 已移除</string>
     <string name="author_rank_save_failed">保存作者排序失败</string>
     <string name="following_empty">没有关注的作者</string>
     <string name="following_refresh_author">刷新作者</string>
@@ -35,4 +36,8 @@
     <string name="pref_following_auto_refresh_on_switch_summary">切换到“关注”标签页时自动刷新已加载的作者</string>
     <string name="pref_translate_author_names">翻译作者名</string>
     <string name="pref_translate_author_names_summary">使用 EhTagTranslation 数据库将罗马音或英文作者名翻译为中文或日文</string>
+    <string name="pref_library_author_group_mode">作者分组细分</string>
+    <string name="library_author_group_artist">画师</string>
+    <string name="library_author_group_group">社团</string>
+    <string name="library_author_group_artist_or_group">画师 + 社团</string>
 </resources>

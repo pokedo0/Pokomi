@@ -29,6 +29,8 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.track.TrackStatus
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.data.translation.AuthorTagTranslator
+import eu.kanade.tachiyomi.data.translation.EhTagTranslationDatabase
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -99,6 +101,7 @@ import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.GetMergedChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.history.interactor.GetNextChapters
+import tachiyomi.domain.library.model.LibraryAuthorGroupMode
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryGroup
 import tachiyomi.domain.library.model.LibraryManga
@@ -161,6 +164,7 @@ class LibraryScreenModel(
     // SY <--
     // KMK -->
     private val smartSearchMerge: SmartSearchMerge = Injekt.get(),
+    private val authorTagTranslator: AuthorTagTranslator = Injekt.get(),
     // KMK <--
 ) : StateScreenModel<LibraryScreenModel.State>(State()) {
 
@@ -257,12 +261,17 @@ class LibraryScreenModel(
                     ::Triple,
                 ),
                 combine(
+                    libraryPreferences.libraryAuthorGroupMode().changes(),
+                    authorTagTranslator.database,
+                    ::Pair,
+                ),
+                combine(
                     state.map { it.filterCategory }.distinctUntilChanged(),
                     state.map { it.includedCategories }.distinctUntilChanged(),
                     ::Pair,
                 ),
                 // KMK <--
-            ) { (data, groupType, noActiveFilterOrSearch), (sort, showHiddenCategories, showEmptyCategoriesSearch), (filterCategory, includedCategories) ->
+            ) { (data, groupType, noActiveFilterOrSearch), (sort, showHiddenCategories, showEmptyCategoriesSearch), (authorGroupMode, authorTagDatabase), (filterCategory, includedCategories) ->
                 data.favorites
                     .applyGrouping(
                         data.categories,
@@ -273,6 +282,8 @@ class LibraryScreenModel(
                             groupType
                         },
                         showHiddenCategories,
+                        authorGroupMode,
+                        authorTagDatabase,
                         // KMK <--
                     )
                     .applySort(
@@ -552,6 +563,8 @@ class LibraryScreenModel(
         // KMK -->
         groupType: Int,
         showHiddenCategories: Boolean,
+        authorGroupMode: LibraryAuthorGroupMode,
+        authorTagDatabase: EhTagTranslationDatabase,
         // KMK <--
     ): Map<Category, List</* LibraryItem */ Long>> {
         // KMK -->
@@ -603,6 +616,10 @@ class LibraryScreenModel(
             else -> {
                 return getGroupedMangaItems(
                     groupType = groupType,
+                    // PKM -->
+                    authorGroupMode = authorGroupMode,
+                    authorTagDatabase = authorTagDatabase,
+                    // PKM <--
                 )
             }
         }
@@ -1507,6 +1524,10 @@ class LibraryScreenModel(
     // SY -->
     private fun List<LibraryItem>.getGroupedMangaItems(
         groupType: Int,
+        // PKM -->
+        authorGroupMode: LibraryAuthorGroupMode,
+        authorTagDatabase: EhTagTranslationDatabase,
+        // PKM <--
     ): Map<Category, List</* LibraryItem */ Long>> {
         val context = preferences.context
         return when (groupType) {
@@ -1600,10 +1621,12 @@ class LibraryScreenModel(
                 val unknownAuthor = context.stringResource(MR.strings.unknown_author)
                 val groupCache = linkedMapOf<String, MutableList</* LibraryItem */ Long>>()
                 forEach { item ->
-                    splitLibraryAuthorNames(
-                        author = item.libraryManga.manga.author,
-                        artist = item.libraryManga.manga.artist,
+                    resolveLibraryAuthorGroupNames(
+                        author = item.libraryManga.manga.ogAuthor,
+                        artist = item.libraryManga.manga.ogArtist,
                         unknownAuthor = unknownAuthor,
+                        mode = authorGroupMode,
+                        tagDatabase = authorTagDatabase,
                     ).forEach { authorName ->
                         groupCache.getOrPut(authorName) { mutableListOf() }.add(item.id)
                     }

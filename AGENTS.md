@@ -22,18 +22,23 @@ Before `git push`, confirm the current branch is not `master` or `main` (`git br
 
 | String kind | Module | Resource class | Base folder only |
 |-------------|--------|----------------|------------------|
+| Pokomi-only / current fork features (new UI, Following, author grouping, PKM blocks, post-rename app behavior) | `i18n-pkm/` | **`PKMR`** | `i18n-pkm/src/commonMain/moko-resources/base/` |
 | Komikku-only (new features, KMK UI, library-update errors, WebDAV, Discord, etc.) | `i18n-kmk/` | **`KMR`** | `i18n-kmk/src/commonMain/moko-resources/base/` |
 | Shared Mihon / upstream behavior | `i18n/` | **`MR`** | `i18n/src/commonMain/moko-resources/base/` |
 | TachiyomiSY-only | `i18n-sy/` | **`SYMR`** | `i18n-sy/src/commonMain/moko-resources/base/` |
 
 **Hard rules:**
 
+- **Never** add Pokomi/current-fork strings to `i18n-kmk/`, `i18n/`, or `i18n-sy/`.
 - **Never** add Komikku-specific strings to `i18n/` or `i18n-sy/`.
 - **Never** edit non-`base` locale `strings.xml` or `plurals.xml` files in `i18n-kmk/`, `i18n/`, or `i18n-sy/` (Weblate owns translations).
+- For `i18n-pkm/`, add new strings to `base/` and also add Simplified/Traditional Chinese translations in `zh-rCN/` and `zh-rTW/` when the string is user-facing.
+- Import: `import tachiyomi.i18n.pkm.PKMR` for Pokomi/current-fork strings.
 - Import: `import tachiyomi.i18n.kmk.KMR` for Komikku strings.
+- If a change is inside `// PKM -->` … `// PKM <--` or adds Pokomi/current-fork behavior, default to **`PKMR` + `i18n-pkm`**.
 - If a change is inside `// KMK -->` … `// KMK <--` or adds Komikku-only behavior, default to **`KMR` + `i18n-kmk`**.
 
-**Self-check before finishing:** `git diff` must not add new `<string name="…">` or `<plurals name="…">` entries under non-`base` locales in `i18n-kmk/src/`, `i18n/src/`, or `i18n-sy/src/`.
+**Self-check before finishing:** `git diff` must not add new `<string name="…">` or `<plurals name="…">` entries under non-`base` locales in `i18n-kmk/src/`, `i18n/src/`, or `i18n-sy/src/`. For `i18n-pkm/src/`, verify new base strings have matching `zh-rCN` and `zh-rTW` entries when applicable.
 
 ### Formatting & build verification
 
@@ -66,6 +71,7 @@ Before `git push`, confirm the current branch is not `master` or `main` (`git br
 | `presentation-widget/` | Home-screen Glance widget |
 | `i18n/` | Mihon strings → `MR` (moko-resources) |
 | `i18n-kmk/` | Komikku strings → `KMR` |
+| `i18n-pkm/` | Pokomi/current-fork strings → `PKMR` |
 | `i18n-sy/` | TachiyomiSY strings → `SYMR` |
 | `flagkit/` | Country-flag drawables |
 | `telemetry/` | Firebase/Crashlytics (noop unless `-Pinclude-telemetry`) |
@@ -89,7 +95,7 @@ Example: `DeepLinkScreen` + `DeepLinkScreenModel` in `app/src/main/java/eu/kanad
 
 **Domain / data** – One class per operation under `domain/…/interactor/` (verb names, not `*Interactor` suffix). Also `app/src/main/java/eu/kanade/domain/…/interactor/` for app-specific cases. Wire repos in `eu.kanade.domain.DomainModule.kt` (+ `KMKDomainModule`, `SYDomainModule`).
 
-**Database** – SQLDelight in `data/src/main/sqldelight/tachiyomi/` (`.sq` queries, `migrations/*.sqm`). After schema changes add a new `.sqm` and often `// KMK` blocks in `.sq` / mappers. Regenerate: `./gradlew :data:generateSqlDelightInterface` (or any compile that touches `:data`).
+**Database** – SQLDelight in `data/src/main/sqldelight/tachiyomi/` (`.sq` queries, `migrations/*.sqm`). After schema changes add a new `.sqm` and often `// PKM` blocks in `.sq` / mappers for new Pokomi work; preserve existing `// KMK` legacy blocks. Regenerate: `./gradlew :data:generateSqlDelightInterface` (or any compile that touches `:data`).
 
 **App preference migrations** – `app/src/main/java/mihon/core/migration/migrations/` (`mihon.core.migration.Migration`).
 
@@ -97,14 +103,17 @@ Example: `DeepLinkScreen` + `DeepLinkScreenModel` in `app/src/main/java/eu/kanad
 
 ---
 
-## Komikku-specific work
+## Pokomi / Komikku-specific work
 
-- **Strings:** see [Mandatory rules – Internationalization](#mandatory-rules-for-ai-agents). Summary: Komikku → **`KMR`** / `i18n-kmk/…/base/` only.
+- **Current fork name:** New project-specific work is Pokomi. Use `// PKM -->` … `// PKM <--` for new fork islands. Keep existing historical `// KMK` blocks intact unless deliberately migrating that block.
+- **Strings:** see [Mandatory rules – Internationalization](#mandatory-rules-for-ai-agents). Summary: new Pokomi/current-fork strings → **`PKMR`** / `i18n-pkm/…/base/`, with `zh-rCN` and `zh-rTW` translations. Legacy Komikku strings remain **`KMR`** / `i18n-kmk/…/base/`.
 - Do not edit locale `strings.xml` in `i18n/` or `i18n-sy/` except when syncing upstream; translations via [Weblate](https://hosted.weblate.org/engage/komikku-app/).
-- Komikku code/DI: search `// KMK` (e.g. `KMKDomainModule`, `HideCategory`, library-update errors).
+- Pokomi code/DI: search `// PKM`; legacy Komikku code may still use `// KMK` (e.g. `KMKDomainModule`, `HideCategory`, library-update errors).
 - Prefs: `eu.kanade.domain.*.service.*Preferences` (e.g. `SourcePreferences.relatedMangas()`).
 
-**Examples (Komikku → `i18n-kmk`, not `i18n`):** library update error UI, sync-before-update messages, WebDAV/Discord settings, updater notifications, `mihon/feature/*` Komikku screens.
+**Examples (Pokomi → `i18n-pkm`, not `i18n-kmk`/`i18n`):** Following UI, author grouping settings, post-rename fork UI, new `// PKM` behavior.
+
+**Examples (legacy Komikku → `i18n-kmk`, not `i18n`):** existing library update error UI, sync-before-update messages, WebDAV/Discord settings, updater notifications, `mihon/feature/*` Komikku screens.
 
 ---
 
@@ -150,9 +159,10 @@ JDK **17**.
 Preserve inline blocks when editing:
 
 ```kotlin
-// KMK -->  … // KMK <--   Komikku
+// PKM -->  … // PKM <--   Pokomi / current fork
+// KMK -->  … // KMK <--   Legacy Komikku
 // SY -->   … // SY <--    TachiyomiSY
-// EXH -->  … // EXH <--   E-Hentai / exh (existing); prefer KMK for new Komikku-only code
+// EXH -->  … // EXH <--   E-Hentai / exh (existing); prefer PKM for new current-fork code
 ```
 
 Package roots: `eu.kanade.tachiyomi.*` (legacy UI), `tachiyomi.*` (domain/data), `mihon.*` (Mihon upstream), `exh.*` (enhanced sources).
@@ -169,7 +179,7 @@ Package roots: `eu.kanade.tachiyomi.*` (legacy UI), `tachiyomi.*` (domain/data),
 
 - **Logging** – Prefer `xLogE()` / `xLog()` helpers from `exh.log` for Komikku code, Mihon uses `logcat { }` from `tachiyomi.core.common.util.system`. Avoid raw `android.util.Log`.
 - **Formatting** – Spotless + ktlint (`buildSrc/.../mihon.code.lint.gradle.kts`). Agents **must** run `spotlessApply` and `spotlessCheck` (see [Mandatory rules](#mandatory-rules-for-ai-agents)).
-- **Fork edits** – New Komikku features inside `// KMK` islands; keep `// SY` / `// EXH` blocks intact when merging upstream.
+- **Fork edits** – New Pokomi/current-fork features inside `// PKM` islands; keep legacy `// KMK`, `// SY`, and `// EXH` blocks intact when merging upstream.
 
 ---
 

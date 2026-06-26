@@ -23,6 +23,10 @@ data class EhTagTranslationDatabase(
 
     fun translateAuthor(name: String): String? = authorTranslations[normalize(name)]
 
+    fun containsTag(namespace: String, keyword: String): Boolean {
+        return NamespacedTag(normalize(namespace), normalize(keyword)) in normalizedTags
+    }
+
     fun translateAuthorOrNamespacedTag(name: String): String? {
         val separatorIndex = name.indexOf(':')
         if (separatorIndex <= 0) return translateAuthor(name)
@@ -106,6 +110,16 @@ data class EhTagTranslationDatabase(
         .filter { it.namespace in TAG_NAMESPACES }
         .filter { it.translation.isNotEmpty() }
         .associate { NamespacedTag(it.namespace, normalize(it.keyword)) to it.translation }
+
+    @Transient
+    private val normalizedTags: Set<NamespacedTag> = entries
+        .asSequence()
+        .flatMap {
+            sequenceOf(it.keyword, it.translation)
+                .filter(String::isNotBlank)
+                .map { keyword -> NamespacedTag(normalize(it.namespace), normalize(keyword)) }
+        }
+        .toSet()
 
     @Serializable
     private data class TagDatabase(val data: List<NamespaceData> = emptyList())

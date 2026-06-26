@@ -5,6 +5,7 @@ import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.preference.getEnum
 import tachiyomi.domain.library.model.GroupLibraryMode
+import tachiyomi.domain.library.model.LibraryAuthorGroupMode
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryGroup
 import tachiyomi.domain.library.model.LibrarySort
@@ -267,6 +268,13 @@ class LibraryPreferences(
     fun groupLibraryUpdateType() = preferenceStore.getEnum("group_library_update_type", GroupLibraryMode.GLOBAL)
 
     fun groupLibraryBy() = preferenceStore.getInt("group_library_by", LibraryGroup.BY_DEFAULT)
+
+    // PKM -->
+    fun libraryAuthorGroupMode() = preferenceStore.getEnum(
+        "library_author_group_mode",
+        LibraryAuthorGroupMode.ARTIST,
+    )
+    // PKM <--
 
     // SY <--
 

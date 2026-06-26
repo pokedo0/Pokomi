@@ -38,8 +38,6 @@ Before `git push`, confirm the current branch is not `master` or `main` (`git br
 - If a change is inside `// PKM -->` … `// PKM <--` or adds Pokomi/current-fork behavior, default to **`PKMR` + `i18n-pkm`**.
 - If a change is inside `// KMK -->` … `// KMK <--` or adds Komikku-only behavior, default to **`KMR` + `i18n-kmk`**.
 
-**Self-check before finishing:** `git diff` must not add new `<string name="…">` or `<plurals name="…">` entries under non-`base` locales in `i18n-kmk/src/`, `i18n/src/`, or `i18n-sy/src/`. For `i18n-pkm/src/`, verify new base strings have matching `zh-rCN` and `zh-rTW` entries when applicable.
-
 ### Formatting & build verification
 
 **“Build passes” is not enough.** After Kotlin/XML edits, run **in this order** before marking work complete:

@@ -7,6 +7,8 @@
 
 A free and open source manga reader forked from **Komikku** (based on TachiyomiSY & Mihon/Tachiyomi). This fork adds new features on top of Komikku — most notably **Author Following**, a dedicated tab to subscribe and track your favorite authors' latest works across sources.
 
+> **Important: To keep Following's "Load all authors" running in the background, allow Pokomi to use high background battery usage in system settings.**
+
 
 ## Features
 

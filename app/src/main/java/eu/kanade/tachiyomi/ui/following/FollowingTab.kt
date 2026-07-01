@@ -19,7 +19,6 @@ import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import tachiyomi.domain.authorSubscription.service.FollowingPreferences
-import tachiyomi.i18n.kmk.KMR
 import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
@@ -58,9 +57,12 @@ data object FollowingTab : Tab {
         // KMK <--
 
         FollowingScreen(
-            subscriptions = state.subscriptions,
+            subscriptions = state.filteredSubscriptions,
+            totalSubscriptionCount = state.subscriptions.size,
             results = state.results,
+            searchQuery = state.searchQuery,
             getManga = screenModel::getManga,
+            onSearchQueryChange = screenModel::search,
             onClickManga = { manga -> navigator.push(MangaScreen(manga.id, true)) },
             onLongClickManga = { manga -> navigator.push(MangaScreen(manga.id, true)) },
             onPullRefresh = screenModel::refreshLoaded,

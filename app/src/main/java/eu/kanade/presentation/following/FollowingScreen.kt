@@ -1,5 +1,6 @@
 package eu.kanade.presentation.following
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -40,14 +41,14 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.browse.components.GlobalSearchCardRow
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
-import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.library.components.CollapsibleAuthorHeader
 import eu.kanade.tachiyomi.ui.following.AuthorRankOrderSnapshotItem
 import eu.kanade.tachiyomi.ui.following.FollowingItemResult
 import kotlinx.coroutines.delay
 import tachiyomi.domain.authorSubscription.model.AuthorSubscription
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.MR
 import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.PullRefresh
@@ -61,8 +62,11 @@ import tachiyomi.presentation.core.util.plus
 @Composable
 fun FollowingScreen(
     subscriptions: List<AuthorSubscription>,
+    totalSubscriptionCount: Int,
     results: Map<Long, FollowingItemResult>,
+    searchQuery: String?,
     getManga: @Composable (Manga) -> State<Manga>,
+    onSearchQueryChange: (String?) -> Unit,
     onClickManga: (Manga) -> Unit,
     onLongClickManga: (Manga) -> Unit,
     onPullRefresh: () -> Unit,
@@ -81,6 +85,7 @@ fun FollowingScreen(
     val collapsedIdSet = remember(collapsedIds) { collapsedIds.toSet() }
     val lazyListState = rememberLazyListState()
     val translateAuthorName = rememberAuthorNameTranslator()
+    val isSearching = !searchQuery.isNullOrEmpty()
     val currentVisibleAuthorId by remember(subscriptions) {
         derivedStateOf {
             subscriptions.getOrNull(lazyListState.firstVisibleItemIndex)?.id
@@ -115,14 +120,20 @@ fun FollowingScreen(
         onHighlightConsumed(anchorId)
     }
 
+    BackHandler(enabled = searchQuery != null) {
+        onSearchQueryChange(null)
+    }
+
     Scaffold(
         topBar = { scrollBehavior ->
             val title = stringResource(PKMR.strings.following)
-            AppBar(
+            SearchToolbar(
+                searchQuery = searchQuery,
+                onChangeSearchQuery = onSearchQueryChange,
                 titleContent = {
                     FollowingAppBarTitle(
                         title = title,
-                        authorCount = subscriptions.size,
+                        authorCount = totalSubscriptionCount,
                     )
                 },
                 actions = {
@@ -145,13 +156,13 @@ fun FollowingScreen(
     ) { paddingValues ->
         PullRefresh(
             refreshing = false,
-            enabled = subscriptions.isNotEmpty(),
+            enabled = totalSubscriptionCount > 0,
             onRefresh = onPullRefresh,
             indicatorPadding = paddingValues,
         ) {
             if (subscriptions.isEmpty()) {
                 EmptyScreen(
-                    stringRes = PKMR.strings.following_empty,
+                    stringRes = if (isSearching) MR.strings.no_results_found else PKMR.strings.following_empty,
                     modifier = Modifier.padding(paddingValues),
                 )
             } else {

@@ -5,6 +5,8 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.produceState
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.tachiyomi.data.translation.AuthorTagTranslator
 import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.source.CatalogueSource
 import kotlinx.collections.immutable.PersistentMap
@@ -17,6 +19,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
@@ -55,6 +58,8 @@ class FollowingScreenModel(
     private val getManga: GetManga = Injekt.get(),
     private val followingPreferences: FollowingPreferences = Injekt.get(),
     private val followingLoadingStatus: FollowingLoadingStatus = Injekt.get(),
+    private val uiPreferences: UiPreferences = Injekt.get(),
+    private val authorTagTranslator: AuthorTagTranslator = Injekt.get(),
 ) : StateScreenModel<FollowingScreenModel.State>(State()) {
 
     private val searchDispatcher = Executors.newFixedThreadPool(MAX_CONCURRENT_REQUESTS).asCoroutineDispatcher()
@@ -63,8 +68,10 @@ class FollowingScreenModel(
     private val sourceRateLimitController = FollowingSourceRateLimitController(maxAttempts = SOURCE_RATE_LIMIT_MAX_ATTEMPTS)
     private var loadedSubscriptionLoadKeys: List<FollowingSubscriptionLoadKey>? = null
     private val serialRecoveringSourceIds = Collections.synchronizedSet(mutableSetOf<Long>())
+    private var includeTranslatedAuthorNames = false
 
     init {
+        authorTagTranslator.launchUpdate()
         screenModelScope.launchIO {
             getAuthorSubscriptions.subscribeAll().collectLatest { subscriptions ->
                 val loadKeys = subscriptions.toFollowingSubscriptionLoadKeys()
@@ -77,6 +84,7 @@ class FollowingScreenModel(
                 mutableState.update { current ->
                     current.copy(
                         subscriptions = subscriptions,
+                        filteredSubscriptions = filterSubscriptions(subscriptions, current.searchQuery),
                         results = current.results
                             .filterKeys { id -> subscriptions.any { it.id == id } }
                             .toPersistentMap(),
@@ -89,6 +97,18 @@ class FollowingScreenModel(
                     trace { "subscriptions state updated; loadInitial skipped state=${state.value.results.followingTraceSummary()}" }
                 }
             }
+        }
+        screenModelScope.launchIO {
+            combine(
+                uiPreferences.translateAuthorNames().changes(),
+                authorTagTranslator.translations,
+            ) { enabled, _ -> enabled }
+                .collectLatest { enabled ->
+                    includeTranslatedAuthorNames = enabled
+                    mutableState.update {
+                        it.copy(filteredSubscriptions = filterSubscriptions(it.subscriptions, it.searchQuery))
+                    }
+                }
         }
     }
 
@@ -181,6 +201,36 @@ class FollowingScreenModel(
                 it
             }
         }
+    }
+
+    fun search(query: String?) {
+        mutableState.update {
+            it.copy(
+                searchQuery = query,
+                filteredSubscriptions = filterSubscriptions(it.subscriptions, query),
+            )
+        }
+    }
+
+    private fun filterSubscriptions(subscriptions: List<AuthorSubscription>, query: String?): List<AuthorSubscription> {
+        val keyword = query?.trim()
+        if (keyword.isNullOrEmpty()) return subscriptions
+
+        return subscriptions.filter { it.matchesFollowingSearch(keyword) }
+    }
+
+    private fun AuthorSubscription.matchesFollowingSearch(keyword: String): Boolean {
+        return name.contains(keyword, ignoreCase = true) ||
+            query.contains(keyword, ignoreCase = true) ||
+            normalizedQuery.contains(keyword, ignoreCase = true) ||
+            matchesTranslatedFollowingSearch(keyword)
+    }
+
+    private fun AuthorSubscription.matchesTranslatedFollowingSearch(keyword: String): Boolean {
+        if (!includeTranslatedAuthorNames) return false
+
+        return authorTagTranslator.translate(name).contains(keyword, ignoreCase = true) ||
+            authorTagTranslator.translate(query).contains(keyword, ignoreCase = true)
     }
 
     private fun refresh(subscriptionIds: Collection<Long>) {
@@ -989,6 +1039,8 @@ class FollowingScreenModel(
     @Immutable
     data class State(
         val subscriptions: List<AuthorSubscription> = emptyList(),
+        val filteredSubscriptions: List<AuthorSubscription> = emptyList(),
+        val searchQuery: String? = null,
         val results: PersistentMap<Long, FollowingItemResult> = persistentMapOf(),
         val sourceRateLimits: PersistentMap<Long, FollowingSourceRateLimit> = persistentMapOf(),
         val activeRankOrderSnapshot: List<AuthorRankOrderSnapshotItem>? = null,

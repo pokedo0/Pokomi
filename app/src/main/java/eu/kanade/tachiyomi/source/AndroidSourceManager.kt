@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.all.EHentai
+import eu.kanade.tachiyomi.source.online.all.Hitomi
 import eu.kanade.tachiyomi.source.online.all.Lanraragi
 import eu.kanade.tachiyomi.source.online.all.MangaDex
 import eu.kanade.tachiyomi.source.online.all.MergedSource
@@ -120,7 +121,12 @@ class AndroidSourceManager(
                         // SY <--
                     }
                     extensions.forEach { extension ->
-                        extension.sources.mapNotNull { it.toInternalSource(/* KMK --> */isHentaiEnabled/* KMK <-- */) }.forEach {
+                        extension.sources.mapNotNull {
+                            it.toInternalSource(
+                                extension.pkgName,
+                                /* KMK --> */isHentaiEnabled/* KMK <-- */,
+                            )
+                        }.forEach {
                             mutableMap[it.id] = it
                             registerStubSource(StubSource.from(it))
                         }
@@ -142,6 +148,7 @@ class AndroidSourceManager(
     }
 
     private fun Source.toInternalSource(
+        extensionPackageName: String,
         // KMK -->
         isHentaiEnabled: Boolean,
         // KMK <--
@@ -160,9 +167,22 @@ class AndroidSourceManager(
             }
         } else {
             null
+        } ?: if (extensionPackageName == HITOMI_SOURCE_QUALIFIED_CLASS_NAME) {
+            DELEGATED_SOURCES[HITOMI_SOURCE_QUALIFIED_CLASS_NAME]
+        } else {
+            null
+        } ?: if (this is HttpSource && name == "Hitomi" && baseUrl == "https://hitomi.la") {
+            DELEGATED_SOURCES[HITOMI_SOURCE_QUALIFIED_CLASS_NAME]
+        } else {
+            null
         }
         val newSource = if (this is HttpSource && delegate != null) {
-            xLogD("Delegating source: %s -> %s!", sourceQName, delegate.newSourceClass.qualifiedName)
+            xLogD(
+                "Delegating source: %s (%s) -> %s!",
+                sourceQName,
+                extensionPackageName,
+                delegate.newSourceClass.qualifiedName,
+            )
             val enhancedSource = EnhancedHttpSource(
                 this,
                 delegate.newSourceClass.constructors.find { it.parameters.size == 2 }!!.call(this, context),
@@ -299,6 +319,13 @@ class AndroidSourceManager(
                 true,
             ),
             DelegatedSource(
+                "Hitomi",
+                fillInSourceId,
+                HITOMI_SOURCE_QUALIFIED_CLASS_NAME,
+                Hitomi::class,
+                true,
+            ),
+            DelegatedSource(
                 "LANraragi",
                 fillInSourceId,
                 "eu.kanade.tachiyomi.extension.all.lanraragi.LANraragi",
@@ -306,6 +333,8 @@ class AndroidSourceManager(
                 true,
             ),
         ).associateBy { it.originalSourceQualifiedClassName }
+
+        private const val HITOMI_SOURCE_QUALIFIED_CLASS_NAME = "eu.kanade.tachiyomi.extension.all.hitomi"
 
         val currentDelegatedSources: MutableMap<Long, DelegatedSource> =
             ListenMutableMap(mutableMapOf(), ::handleSourceLibrary)

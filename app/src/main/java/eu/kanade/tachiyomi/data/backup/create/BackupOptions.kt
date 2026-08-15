@@ -15,7 +15,7 @@ data class BackupOptions(
     val history: Boolean = true,
     val readEntries: Boolean = true,
     val appSettings: Boolean = true,
-    val extensionRepoSettings: Boolean = true,
+    val extensionStores: Boolean = true,
     val sourceSettings: Boolean = true,
     val privateSettings: Boolean = false,
     // SY -->
@@ -35,7 +35,7 @@ data class BackupOptions(
         history,
         readEntries,
         appSettings,
-        extensionRepoSettings,
+        extensionStores,
         sourceSettings,
         privateSettings,
         // SY -->
@@ -48,7 +48,7 @@ data class BackupOptions(
     )
 
     fun canCreate() =
-        libraryEntries || categories || appSettings || extensionRepoSettings || sourceSettings ||
+        libraryEntries || categories || appSettings || extensionStores || sourceSettings ||
             savedSearchesFeeds /* KMK --> */ || following /* KMK <-- */
 
     companion object {
@@ -118,9 +118,9 @@ data class BackupOptions(
                 setter = { options, enabled -> options.copy(appSettings = enabled) },
             ),
             Entry(
-                label = MR.strings.extensionRepo_settings,
-                getter = BackupOptions::extensionRepoSettings,
-                setter = { options, enabled -> options.copy(extensionRepoSettings = enabled) },
+                label = MR.strings.extensionStores,
+                getter = BackupOptions::extensionStores,
+                setter = { options, enabled -> options.copy(extensionStores = enabled) },
             ),
             Entry(
                 label = MR.strings.source_settings,
@@ -145,7 +145,7 @@ data class BackupOptions(
                 history = array.getOrElse(4) { default.history },
                 readEntries = array.getOrElse(5) { default.readEntries },
                 appSettings = array.getOrElse(6) { default.appSettings },
-                extensionRepoSettings = array.getOrElse(7) { default.extensionRepoSettings },
+                extensionStores = array.getOrElse(7) { default.extensionStores },
                 sourceSettings = array.getOrElse(8) { default.sourceSettings },
                 privateSettings = array.getOrElse(9) { default.privateSettings },
                 // SY -->

@@ -140,6 +140,7 @@ class AuthorSubscriptionRepositoryImpl(
                         version,
                         isSyncing,
                         notes,
+                        memo,
                     ->
                     CacheMangaRow(
                         subscriptionId = subscriptionId,
@@ -170,6 +171,7 @@ class AuthorSubscriptionRepositoryImpl(
                             version = version,
                             isSyncing = isSyncing,
                             notes = notes,
+                            memo = memo,
                         ),
                     )
                 },

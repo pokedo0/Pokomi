@@ -5,7 +5,7 @@ import eu.kanade.domain.sync.SyncPreferences
 import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
-import eu.kanade.tachiyomi.data.backup.models.BackupExtensionRepos
+import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupFeed
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
@@ -57,9 +57,9 @@ abstract class SyncService(
             localSyncData.backup?.backupSourcePreferences,
             remoteSyncData.backup?.backupSourcePreferences,
         )
-        val mergedExtensionRepoList = mergeExtensionRepoLists(
-            localSyncData.backup?.backupExtensionRepo,
-            remoteSyncData.backup?.backupExtensionRepo,
+        val mergedExtensionStoreList = mergeExtensionStoreLists(
+            localSyncData.backup?.backupExtensionStores,
+            remoteSyncData.backup?.backupExtensionStores,
         )
 
         // SY -->
@@ -87,7 +87,7 @@ abstract class SyncService(
             backupSources = mergedSourcesList,
             backupPreferences = mergedPreferencesList,
             backupSourcePreferences = mergedSourcePreferencesList,
-            backupExtensionRepo = mergedExtensionRepoList,
+            backupExtensionStores = mergedExtensionStoreList,
 
             // SY -->
             backupSavedSearches = mergedSavedSearchesList,
@@ -143,14 +143,12 @@ abstract class SyncService(
         val remoteCategoriesMapByOrder = remoteCategories.associateBy { it.order }
         val mergedCategoriesMapByName = mergedCategories.associateBy { it.name }
 
-        fun updateCategories(theManga: BackupManga, theMap: Map<Long, BackupCategory>): BackupManga {
-            return theManga.copy(
-                categories = theManga.categories.mapNotNull {
-                    theMap[it]?.let { category ->
-                        mergedCategoriesMapByName[category.name]?.order
-                    }
-                },
-            )
+        fun updateCategories(theManga: BackupManga, theMap: Map<Long, BackupCategory>) {
+            theManga.categories = theManga.categories.mapNotNull {
+                theMap[it]?.let { category ->
+                    mergedCategoriesMapByName[category.name]?.order
+                }
+            }
         }
 
         logcat(LogPriority.DEBUG, logTag) {
@@ -163,26 +161,30 @@ abstract class SyncService(
 
             // New version comparison logic
             when {
-                local != null && remote == null -> updateCategories(local, localCategoriesMapByOrder)
-                local == null && remote != null -> updateCategories(remote, remoteCategoriesMapByOrder)
+                local != null && remote == null -> {
+                    updateCategories(local, localCategoriesMapByOrder)
+                    local
+                }
+                local == null && remote != null -> {
+                    updateCategories(remote, remoteCategoriesMapByOrder)
+                    remote
+                }
                 local != null && remote != null -> {
                     // Compare versions to decide which manga to keep
                     if (local.version >= remote.version) {
                         logcat(LogPriority.DEBUG, logTag) {
                             "Keeping local version of ${local.title} with merged chapters."
                         }
-                        updateCategories(
-                            local.copy(chapters = mergeChapters(local.chapters, remote.chapters)),
-                            localCategoriesMapByOrder,
-                        )
+                        local.chapters = mergeChapters(local.chapters, remote.chapters)
+                        updateCategories(local, localCategoriesMapByOrder)
+                        local
                     } else {
                         logcat(LogPriority.DEBUG, logTag) {
                             "Keeping remote version of ${remote.title} with merged chapters."
                         }
-                        updateCategories(
-                            remote.copy(chapters = mergeChapters(local.chapters, remote.chapters)),
-                            remoteCategoriesMapByOrder,
-                        )
+                        remote.chapters = mergeChapters(local.chapters, remote.chapters)
+                        updateCategories(remote, remoteCategoriesMapByOrder)
+                        remote
                     }
                 }
                 else -> null // No manga found for key
@@ -258,10 +260,9 @@ abstract class SyncService(
                     val chosenChapter = if (localChapter.version >= remoteChapter.version) {
                         // If there mare more chapter on remote, local sourceOrder will need to be updated to maintain correct source order.
                         if (localChapters.size < remoteChapters.size) {
-                            localChapter.copy(sourceOrder = remoteChapter.sourceOrder)
-                        } else {
-                            localChapter
+                            localChapter.sourceOrder = remoteChapter.sourceOrder
                         }
+                        localChapter
                     } else {
                         remoteChapter
                     }
@@ -488,11 +489,11 @@ abstract class SyncService(
         return mergedPrefsMap.values.toList()
     }
 
-    private fun mergeExtensionRepoLists(
-        localRepos: List<BackupExtensionRepos>?,
-        remoteRepos: List<BackupExtensionRepos>?,
-    ): List<BackupExtensionRepos> {
-        return (localRepos.orEmpty() + remoteRepos.orEmpty()).distinctBy { it.baseUrl }
+    private fun mergeExtensionStoreLists(
+        localStores: List<BackupExtensionStore>?,
+        remoteStores: List<BackupExtensionStore>?,
+    ): List<BackupExtensionStore> {
+        return (localStores.orEmpty() + remoteStores.orEmpty()).distinctBy { it.indexUrl }
     }
 
     // SY -->

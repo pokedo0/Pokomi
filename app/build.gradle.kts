@@ -28,8 +28,8 @@ android {
     defaultConfig {
         applicationId = "app.pokomi"
 
-        versionCode = (project.findProperty("versionCode") as? String)?.toIntOrNull() ?: 79
-        versionName = (project.findProperty("versionName") as? String)?.removePrefix("v") ?: "1.13.6"
+        versionCode = (project.findProperty("versionCode") as? String)?.toIntOrNull() ?: 81
+        versionName = (project.findProperty("versionName") as? String)?.removePrefix("v") ?: "1.14.1"
 
         buildConfigField("String", "COMMIT_COUNT", "\"${getCommitCount()}\"")
         buildConfigField("String", "COMMIT_SHA", "\"${getGitSha()}\"")

@@ -95,6 +95,12 @@ Example: `DeepLinkScreen` + `DeepLinkScreenModel` in `app/src/main/java/eu/kanad
 
 **Database** – SQLDelight in `data/src/main/sqldelight/tachiyomi/` (`.sq` queries, `migrations/*.sqm`). After schema changes add a new `.sqm` and often `// PKM` blocks in `.sq` / mappers for new Pokomi work; preserve existing `// KMK` legacy blocks. Regenerate: `./gradlew :data:generateSqlDelightInterface` (or any compile that touches `:data`).
 
+**Database migrations when periodically merging upstream (fork-sync git merge only)**
+
+- Treat `.sqm` migration numbers as a global, append-only history. Do not overwrite or renumber existing migrations.
+- If the fork and upstream use the same number for different schema changes, keep the existing history and add the missing change in a new migration after the current highest number.
+- Make the new migration compatible with fresh installs and existing fork/upstream databases.
+
 **App preference migrations** – `app/src/main/java/mihon/core/migration/migrations/` (`mihon.core.migration.Migration`).
 
 **Images** – Coil 3 (`coil3.*`, `context.imageLoader`). No Glide/Picasso.

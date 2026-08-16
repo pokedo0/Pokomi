@@ -101,7 +101,7 @@ class FollowingScreenModel(
         screenModelScope.launchIO {
             combine(
                 uiPreferences.translateAuthorNames().changes(),
-                authorTagTranslator.translations,
+                authorTagTranslator.database,
             ) { enabled, _ -> enabled }
                 .collectLatest { enabled ->
                     includeTranslatedAuthorNames = enabled
@@ -229,8 +229,8 @@ class FollowingScreenModel(
     private fun AuthorSubscription.matchesTranslatedFollowingSearch(keyword: String): Boolean {
         if (!includeTranslatedAuthorNames) return false
 
-        return authorTagTranslator.translate(name).contains(keyword, ignoreCase = true) ||
-            authorTagTranslator.translate(query).contains(keyword, ignoreCase = true)
+        return authorTagTranslator.translateAny(name).contains(keyword, ignoreCase = true) ||
+            authorTagTranslator.translateAny(query).contains(keyword, ignoreCase = true)
     }
 
     private fun refresh(subscriptionIds: Collection<Long>) {

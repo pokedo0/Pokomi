@@ -125,6 +125,14 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
+private val TRAILING_GENDER_SYMBOLS = setOf('\u2642', '\u2640')
+
+internal fun normalizeGlobalSearchQuery(query: String): String {
+    return query.trimEnd()
+        .trimEnd { it in TRAILING_GENDER_SYMBOLS }
+        .trimEnd()
+}
+
 class MangaScreen(
     private val mangaId: Long,
     /**
@@ -339,7 +347,14 @@ class MangaScreen(
             onFilterButtonClicked = screenModel::showSettingsDialog,
             onRefresh = screenModel::fetchAllFromSource,
             onContinueReading = { continueReading(context, screenModel.getNextUnreadChapter()) },
-            onSearch = { query, global -> scope.launch { performSearch(navigator, query, global) } },
+            onSearch = { query, global ->
+                val searchQuery = if (global) {
+                    normalizeGlobalSearchQuery(query)
+                } else {
+                    query
+                }
+                scope.launch { performSearch(navigator, searchQuery, global) }
+            },
             // KMK -->
             librarySearch = { query ->
                 scope.launch { performSearch(navigator, query, global = false, library = true) }

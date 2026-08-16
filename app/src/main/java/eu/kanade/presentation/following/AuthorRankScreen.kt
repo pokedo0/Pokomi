@@ -135,7 +135,7 @@ private fun AuthorRankContent(
 ) {
     val initialIndex = state.items.indexOfFirst { it.id == state.initialAuthorId }.coerceAtLeast(0)
     val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
-    val translateAuthorName = rememberAuthorNameTranslator()
+    val translateAuthorName = rememberAllNameTranslator()
     val context = LocalContext.current
     val reorderableState = rememberReorderableLazyListState(lazyListState, paddingValues) { from, to ->
         if (!state.saving) {

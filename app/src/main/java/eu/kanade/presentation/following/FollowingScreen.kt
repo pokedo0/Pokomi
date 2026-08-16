@@ -84,7 +84,7 @@ fun FollowingScreen(
     var collapsedIds by rememberSaveable { mutableStateOf(emptyList<Long>()) }
     val collapsedIdSet = remember(collapsedIds) { collapsedIds.toSet() }
     val lazyListState = rememberLazyListState()
-    val translateAuthorName = rememberAuthorNameTranslator()
+    val translateAuthorName = rememberAllNameTranslator()
     val isSearching = !searchQuery.isNullOrEmpty()
     val currentVisibleAuthorId by remember(subscriptions) {
         derivedStateOf {

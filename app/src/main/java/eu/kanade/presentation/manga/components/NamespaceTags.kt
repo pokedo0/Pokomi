@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.ChipBorder
 import eu.kanade.presentation.components.SuggestionChip
 import eu.kanade.presentation.components.SuggestionChipDefaults
+import eu.kanade.presentation.following.rememberTagTranslator
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.metadata.metadata.RaisedSearchMetadata
@@ -74,12 +75,27 @@ value class SearchMetadataChips(
                         }
                         .groupBy { it.namespace.orEmpty() },
                 )
-            } else if (tags != null && tags.all { it.contains(':') }) {
+            } else if (!tags.isNullOrEmpty()) {
                 SearchMetadataChips(
                     tags
+                        .filter(String::isNotBlank)
                         .map { tag ->
                             val index = tag.indexOf(':')
-                            DisplayTag(tag.substring(0, index).trim(), tag.substring(index + 1).trim(), tag, null)
+                            if (index > 0) {
+                                DisplayTag(
+                                    namespace = tag.substring(0, index).trim(),
+                                    text = tag.substring(index + 1).trim(),
+                                    search = tag,
+                                    border = null,
+                                )
+                            } else {
+                                DisplayTag(
+                                    namespace = null,
+                                    text = tag.trim(),
+                                    search = tag,
+                                    border = null,
+                                )
+                            }
                         }
                         .groupBy {
                             it.namespace.orEmpty()
@@ -100,6 +116,8 @@ fun NamespaceTags(
     pureDarkMode: Boolean = false,
     // KMK <--
 ) {
+    val translateTag = rememberTagTranslator()
+
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         tags.tags.forEach { (namespace, tags) ->
             Row(Modifier.padding(start = 16.dp)) {
@@ -117,12 +135,12 @@ fun NamespaceTags(
                     modifier = Modifier.padding(start = 8.dp, end = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    tags.forEach { (_, text, search, border) ->
+                    tags.forEach { (tagNamespace, text, search, border) ->
                         val borderDp = border?.dp
                         TagsChip(
                             modifier = Modifier.padding(vertical = 4.dp),
-                            text = text,
-                            onClick = { onClick(search) },
+                            text = translateTag(tagNamespace, text),
+                            onClick = { onClick(search.substringAfter(':', search)) },
                             border = borderDp?.let {
                                 SuggestionChipDefaults.suggestionChipBorder(
                                     borderWidth = it,

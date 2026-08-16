@@ -21,7 +21,7 @@ import tachiyomi.core.common.util.system.logcat
 import java.io.File
 
 /**
- * Translates romanized author/group names and provides tag suggestions using
+ * Translates author/group names and tags, and provides tag suggestions using
  * the EhTagTranslation database.
  *
  * Mirrors EhViewer's approach: download the upstream JSON, cache parsed tag
@@ -52,6 +52,14 @@ class AuthorTagTranslator(
 
     /** Returns the translated author/tag name, or [name] unchanged when no translation exists. */
     fun translate(name: String): String = databaseFlow.value.translateAuthorOrNamespacedTag(name) ?: name
+
+    /** Returns the first matching translation across all namespaces, or [name] unchanged. */
+    fun translateAny(name: String): String = databaseFlow.value.translateAny(name) ?: name
+
+    /** Returns a translated tag keyword for its namespace, or null when no translation exists. */
+    fun translateTag(namespace: String, keyword: String): String? {
+        return databaseFlow.value.translateTag(namespace, keyword)
+    }
 
     fun suggest(query: String, includeTranslations: Boolean, limit: Int = 15): List<TagSuggestion> {
         return databaseFlow.value.suggest(query, includeTranslations, limit)
@@ -112,6 +120,7 @@ class AuthorTagTranslator(
     private fun setDatabase(database: EhTagTranslationDatabase) {
         databaseFlow.value = database
         translationsFlow.value = database.authorTranslations
+        logcat { "Loaded EhTagTranslation database with ${database.entries.size} entries" }
     }
 
     companion object {

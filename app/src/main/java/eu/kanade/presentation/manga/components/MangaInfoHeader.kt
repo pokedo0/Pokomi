@@ -94,6 +94,7 @@ import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.following.rememberAuthorNameTranslator
+import eu.kanade.presentation.following.rememberTagTranslator
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.manga.AuthorFollowState
@@ -397,6 +398,8 @@ fun ExpandableMangaDescription(
                 .clickableNoIndication { onExpanded(!expanded) },
         )
         val tags = tagsProvider()
+        val translateTag = rememberTagTranslator()
+        val metadataTags = searchMetadataChips?.tags?.values?.flatten()
         if (!tags.isNullOrEmpty()) {
             Box(
                 modifier = Modifier
@@ -474,18 +477,34 @@ fun ExpandableMangaDescription(
                         contentPadding = PaddingValues(horizontal = MaterialTheme.padding.medium),
                         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
                     ) {
-                        items(items = tags) {
-                            TagsChip(
-                                modifier = DefaultTagChipModifier,
-                                text = it,
-                                onClick = {
-                                    tagSelected = it
-                                    showMenu = true
-                                },
-                                // KMK -->
-                                pureDarkMode = pureDarkMode,
-                                // KMK <--
-                            )
+                        if (metadataTags != null) {
+                            items(items = metadataTags) { tag ->
+                                TagsChip(
+                                    modifier = DefaultTagChipModifier,
+                                    text = translateTag(tag.namespace, tag.text),
+                                    onClick = {
+                                        tagSelected = tag.search.substringAfter(':', tag.search)
+                                        showMenu = true
+                                    },
+                                    // KMK -->
+                                    pureDarkMode = pureDarkMode,
+                                    // KMK <--
+                                )
+                            }
+                        } else {
+                            items(items = tags) { tag ->
+                                TagsChip(
+                                    modifier = DefaultTagChipModifier,
+                                    text = tag,
+                                    onClick = {
+                                        tagSelected = tag
+                                        showMenu = true
+                                    },
+                                    // KMK -->
+                                    pureDarkMode = pureDarkMode,
+                                    // KMK <--
+                                )
+                            }
                         }
                     }
                 }

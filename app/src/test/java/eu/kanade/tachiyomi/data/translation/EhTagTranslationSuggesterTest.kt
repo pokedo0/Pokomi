@@ -73,6 +73,15 @@ class EhTagTranslationSuggesterTest {
     }
 
     @Test
+    fun `all translations use first matching entry across namespaces`() {
+        val database = EhTagTranslationDatabase.parse(json, sampleDatabase)
+
+        database.translateAny("michiko") shouldBe "美智子（红蝶）"
+        database.translateAny("michishio") shouldBe "满潮(槁)"
+        database.translateAny("unlisted") shouldBe "未列出"
+    }
+
+    @Test
     fun `namespaced tag translations keep namespace and translate keyword`() {
         val database = EhTagTranslationDatabase.parse(json, sampleDatabase)
 
@@ -84,9 +93,36 @@ class EhTagTranslationSuggesterTest {
     fun `namespaced tag translations ignore unknown namespaces and missing keywords`() {
         val database = EhTagTranslationDatabase.parse(json, sampleDatabase)
 
-        database.translateAuthorOrNamespacedTag("unknown:michiko") shouldBe null
+        database.translateAuthorOrNamespacedTag("unknown:unlisted") shouldBe "unknown:未列出"
         database.translateAuthorOrNamespacedTag("artist:missing") shouldBe null
+        database.translateAuthorOrNamespacedTag("group:michiko") shouldBe null
         database.translateAuthorOrNamespacedTag("artist:") shouldBe null
+    }
+
+    @Test
+    fun `tag translations use exact namespace when it exists`() {
+        val database = EhTagTranslationDatabase.parse(json, sampleDatabase)
+
+        database.translateTag("character", "michiko") shouldBe "美智子（红蝶）"
+        database.translateTag("artist", "michiko") shouldBe "美智子"
+        database.translateTag("group", "michiko") shouldBe null
+    }
+
+    @Test
+    fun `tag translations fall back to any namespace when display namespace is generic`() {
+        val database = EhTagTranslationDatabase.parse(json, sampleDatabase)
+
+        database.translateTag("tag", "michiko") shouldBe "美智子（红蝶）"
+    }
+
+    @Test
+    fun `tag translations retry without trailing gender symbols`() {
+        val database = EhTagTranslationDatabase.parse(json, symbolDatabase)
+
+        database.translateTag("male", "sole male ♂") shouldBe "单身男性"
+        database.translateTag("female", "mouse girl ♀") shouldBe "鼠女"
+        database.translateAny("sole male ♂") shouldBe "单身男性"
+        database.translateAny("mouse girl ♀") shouldBe "鼠女"
     }
 
     private val sampleDatabase = """
@@ -110,6 +146,31 @@ class EhTagTranslationSuggesterTest {
               "namespace": "group",
               "data": {
                 "michiking": { "name": "米奇王" }
+              }
+            },
+            {
+              "namespace": "unknown",
+              "data": {
+                "unlisted": { "name": "未列出" }
+              }
+            }
+          ]
+        }
+    """.trimIndent()
+
+    private val symbolDatabase = """
+        {
+          "data": [
+            {
+              "namespace": "male",
+              "data": {
+                "sole male": { "name": "单身男性" }
+              }
+            },
+            {
+              "namespace": "female",
+              "data": {
+                "mouse girl": { "name": "鼠女" }
               }
             }
           ]

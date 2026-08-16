@@ -17,11 +17,41 @@ data class EhTagTranslationDatabase(
 ) {
     val authorTranslations: Map<String, String> = entries
         .asSequence()
-        .filter { it.namespace in AUTHOR_NAMESPACES }
+        .filter { normalize(it.namespace) in AUTHOR_NAMESPACES }
         .filter { it.translation.isNotEmpty() }
         .associate { normalize(it.keyword) to it.translation }
 
+    val allTranslations: Map<String, String> = entries
+        .asSequence()
+        .filter { it.translation.isNotEmpty() }
+        .fold(linkedMapOf<String, String>()) { translations, entry ->
+            translations.putIfAbsent(normalize(entry.keyword), entry.translation)
+            translations
+        }
+
     fun translateAuthor(name: String): String? = authorTranslations[normalize(name)]
+
+    fun translateAny(name: String): String? {
+        return keywordCandidates(name)
+            .mapNotNull { candidate -> allTranslations[candidate] }
+            .firstOrNull()
+    }
+
+    fun translateTag(namespace: String, keyword: String): String? {
+        if (namespace.isBlank() || keyword.isBlank()) return null
+
+        val normalizedNamespace = normalize(namespace)
+        val keywordCandidates = keywordCandidates(keyword)
+        return keywordCandidates
+            .mapNotNull { candidate ->
+                tagTranslations[NamespacedTag(normalizedNamespace, candidate)]
+            }
+            .firstOrNull()
+            ?: keywordCandidates
+                .mapNotNull { candidate -> allTranslations[candidate] }
+                .firstOrNull()
+                .takeIf { normalizedNamespace !in namespaces }
+    }
 
     fun containsTag(namespace: String, keyword: String): Boolean {
         return NamespacedTag(normalize(namespace), normalize(keyword)) in normalizedTags
@@ -32,13 +62,10 @@ data class EhTagTranslationDatabase(
         if (separatorIndex <= 0) return translateAuthor(name)
 
         val namespace = name.substring(0, separatorIndex)
-        val normalizedNamespace = normalize(namespace)
-        if (normalizedNamespace !in TAG_NAMESPACES) return null
-
         val keyword = name.substring(separatorIndex + 1)
         if (keyword.isBlank()) return null
 
-        return tagTranslations[NamespacedTag(normalizedNamespace, normalize(keyword))]
+        return translateTag(namespace, keyword)
             ?.let { "$namespace:$it" }
     }
 
@@ -104,12 +131,31 @@ data class EhTagTranslationDatabase(
         val keyword: String,
     )
 
+    private fun keywordCandidates(keyword: String): Sequence<String> {
+        val normalizedKeyword = normalize(keyword)
+        val normalizedKeywordWithoutSuffix = normalize(
+            keyword.trimEnd().trimEnd { it in TRAILING_GENDER_SYMBOLS }.trimEnd(),
+        )
+        return sequenceOf(normalizedKeyword, normalizedKeywordWithoutSuffix).distinct()
+    }
+
     @Transient
     private val tagTranslations: Map<NamespacedTag, String> = entries
         .asSequence()
-        .filter { it.namespace in TAG_NAMESPACES }
         .filter { it.translation.isNotEmpty() }
-        .associate { NamespacedTag(it.namespace, normalize(it.keyword)) to it.translation }
+        .fold(linkedMapOf<NamespacedTag, String>()) { translations, entry ->
+            translations.putIfAbsent(
+                NamespacedTag(normalize(entry.namespace), normalize(entry.keyword)),
+                entry.translation,
+            )
+            translations
+        }
+
+    @Transient
+    private val namespaces: Set<String> = entries
+        .asSequence()
+        .map { normalize(it.namespace) }
+        .toSet()
 
     @Transient
     private val normalizedTags: Set<NamespacedTag> = entries
@@ -137,20 +183,7 @@ data class EhTagTranslationDatabase(
         val Empty = EhTagTranslationDatabase(emptyList())
 
         private val AUTHOR_NAMESPACES = setOf("artist", "group")
-        private val TAG_NAMESPACES = setOf(
-            "female",
-            "male",
-            "mixed",
-            "location",
-            "language",
-            "other",
-            "group",
-            "artist",
-            "cosplayer",
-            "parody",
-            "character",
-            "reclass",
-        )
+        private val TRAILING_GENDER_SYMBOLS = setOf('\u2642', '\u2640')
         private val NAMESPACE_SCORES = mapOf(
             "location" to 10f,
             "other" to 10f,

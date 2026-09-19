@@ -52,6 +52,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.sample
+import logcat.LogPriority
+import logcat.logcat
 import tachiyomi.presentation.core.components.Scroller.STICKY_HEADER_KEY_PREFIX
 import kotlin.math.abs
 import kotlin.math.max
@@ -85,7 +87,9 @@ fun VerticalFastScroller(
             if (layoutInfo.visibleItemsInfo.isEmpty() || layoutInfo.totalItemsCount == 0) return@subcompose
 
             val thumbTopPadding = with(LocalDensity.current) { topContentPadding.toPx() }
-            var thumbOffsetY by remember(thumbTopPadding) { mutableFloatStateOf(thumbTopPadding) }
+            // PKM -->
+            var thumbOffsetY by remember { mutableFloatStateOf(thumbTopPadding) }
+            // PKM <--
 
             val dragInteractionSource = remember { MutableInteractionSource() }
             val isThumbDragged by dragInteractionSource.collectIsDraggedAsState()
@@ -109,6 +113,29 @@ fun VerticalFastScroller(
                 listState.layoutInfo.afterContentPadding
             val thumbHeightPx = with(LocalDensity.current) { ThumbLength.toPx() }
             val trackHeightPx = heightPx - thumbHeightPx
+            // PKM -->
+            val prevThumbTopPadding = remember { MutableData(thumbTopPadding) }
+            val prevTrackHeightPx = remember { MutableData(trackHeightPx) }
+            if (isThumbDragged && prevTrackHeightPx.value > 0f && trackHeightPx > 0f) {
+                if (thumbTopPadding != prevThumbTopPadding.value || trackHeightPx != prevTrackHeightPx.value) {
+                    val prevProportion = ((thumbOffsetY - prevThumbTopPadding.value) / prevTrackHeightPx.value)
+                        .coerceIn(0f, 1f)
+                    val newOffsetY = trackHeightPx * prevProportion + thumbTopPadding
+                    logcat(LogPriority.DEBUG) {
+                        "VerticalFastScroller adjusting thumbOffsetY on layout change during drag: " +
+                            "oldOffset=$thumbOffsetY, newOffset=$newOffsetY, proportion=$prevProportion, " +
+                            "topPadding: ${prevThumbTopPadding.value} -> $thumbTopPadding, " +
+                            "trackHeight: ${prevTrackHeightPx.value} -> $trackHeightPx"
+                    }
+                    thumbOffsetY = newOffsetY.coerceIn(
+                        thumbTopPadding,
+                        thumbTopPadding + trackHeightPx,
+                    )
+                }
+            }
+            prevThumbTopPadding.value = thumbTopPadding
+            prevTrackHeightPx.value = trackHeightPx
+            // PKM <--
             val scrollHeightPx = contentHeight.toFloat() -
                 listState.layoutInfo.beforeContentPadding -
                 listState.layoutInfo.afterContentPadding -
@@ -144,7 +171,10 @@ fun VerticalFastScroller(
             // When thumb dragged
             LaunchedEffect(thumbOffsetY) {
                 if (layoutInfo.totalItemsCount == 0 || !isThumbDragged) return@LaunchedEffect
-                val thumbProportion = (thumbOffsetY - thumbTopPadding) / trackHeightPx
+                // PKM -->
+                if (trackHeightPx <= 0f) return@LaunchedEffect
+                val thumbProportion = ((thumbOffsetY - thumbTopPadding) / trackHeightPx).coerceIn(0f, 1f)
+                // PKM <--
                 if (thumbProportion <= 0.001f) {
                     estimateConfidence.value = -1f
                     listState.scrollToItem(index = 0, scrollOffset = 0)
@@ -305,7 +335,9 @@ fun VerticalGridFastScroller(
             }
             if (!showScroller) return@subcompose
             val thumbTopPadding = with(LocalDensity.current) { topContentPadding.toPx() }
-            var thumbOffsetY by remember(thumbTopPadding) { mutableFloatStateOf(thumbTopPadding) }
+            // PKM -->
+            var thumbOffsetY by remember { mutableFloatStateOf(thumbTopPadding) }
+            // PKM <--
 
             val dragInteractionSource = remember { MutableInteractionSource() }
             val isThumbDragged by dragInteractionSource.collectIsDraggedAsState()
@@ -323,6 +355,29 @@ fun VerticalGridFastScroller(
                 state.layoutInfo.afterContentPadding
             val thumbHeightPx = with(LocalDensity.current) { ThumbLength.toPx() }
             val trackHeightPx = heightPx - thumbHeightPx
+            // PKM -->
+            val prevThumbTopPadding = remember { MutableData(thumbTopPadding) }
+            val prevTrackHeightPx = remember { MutableData(trackHeightPx) }
+            if (isThumbDragged && prevTrackHeightPx.value > 0f && trackHeightPx > 0f) {
+                if (thumbTopPadding != prevThumbTopPadding.value || trackHeightPx != prevTrackHeightPx.value) {
+                    val prevProportion = ((thumbOffsetY - prevThumbTopPadding.value) / prevTrackHeightPx.value)
+                        .coerceIn(0f, 1f)
+                    val newOffsetY = trackHeightPx * prevProportion + thumbTopPadding
+                    logcat(LogPriority.DEBUG) {
+                        "VerticalGridFastScroller adjusting thumbOffsetY on layout change during drag: " +
+                            "oldOffset=$thumbOffsetY, newOffset=$newOffsetY, proportion=$prevProportion, " +
+                            "topPadding: ${prevThumbTopPadding.value} -> $thumbTopPadding, " +
+                            "trackHeight: ${prevTrackHeightPx.value} -> $trackHeightPx"
+                    }
+                    thumbOffsetY = newOffsetY.coerceIn(
+                        thumbTopPadding,
+                        thumbTopPadding + trackHeightPx,
+                    )
+                }
+            }
+            prevThumbTopPadding.value = thumbTopPadding
+            prevTrackHeightPx.value = trackHeightPx
+            // PKM <--
 
             val columnCount = remember(columns) { slotSizesSums(constraints).size.coerceAtLeast(1) }
 
@@ -337,7 +392,10 @@ fun VerticalGridFastScroller(
                 val avgSizePerRow = laidOutArea.toFloat() / laidOutRows.coerceAtLeast(1)
 
                 val scrollRange = computeGridScrollRange(state = state)
-                val scrollRatio = (thumbOffsetY - thumbTopPadding) / trackHeightPx
+                // PKM -->
+                if (trackHeightPx <= 0f) return@LaunchedEffect
+                val scrollRatio = ((thumbOffsetY - thumbTopPadding) / trackHeightPx).coerceIn(0f, 1f)
+                // PKM <--
                 val scrollAmt = scrollRatio * (scrollRange.toFloat() - heightPx).coerceAtLeast(1f)
                 val rowNumber = (scrollAmt / avgSizePerRow.coerceAtLeast(1f)).toInt()
                 val rowOffset = scrollAmt - rowNumber * avgSizePerRow

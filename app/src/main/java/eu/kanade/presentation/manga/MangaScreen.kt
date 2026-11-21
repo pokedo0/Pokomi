@@ -454,13 +454,9 @@ private fun MangaScreenSmallImpl(
     val readButtonPosition = uiPreferences.readButtonPosition()
     // KMK <--
 
-    BackHandler(onBack = {
-        if (isAnySelected) {
-            onAllChapterSelected(false)
-        } else {
-            navigateUp()
-        }
-    })
+    BackHandler(enabled = isAnySelected) {
+        onAllChapterSelected(false)
+    }
 
     Scaffold(
         topBar = {
@@ -925,13 +921,9 @@ private fun MangaScreenLargeImpl(
 
     val chapterListState = rememberLazyListState()
 
-    BackHandler(onBack = {
-        if (isAnySelected) {
-            onAllChapterSelected(false)
-        } else {
-            navigateUp()
-        }
-    })
+    BackHandler(enabled = isAnySelected) {
+        onAllChapterSelected(false)
+    }
 
     Scaffold(
         topBar = {

@@ -1,5 +1,6 @@
 package eu.kanade.domain
 
+import eu.kanade.domain.extension.interactor.RefreshExtensionStores
 import tachiyomi.data.authorSubscription.AuthorSubscriptionRepositoryImpl
 import tachiyomi.data.libraryUpdateError.LibraryUpdateErrorRepositoryImpl
 import tachiyomi.data.libraryUpdateError.LibraryUpdateErrorWithRelationsRepositoryImpl
@@ -60,5 +61,7 @@ class KMKDomainModule : InjektModule {
         addFactory { GetLibraryUpdateErrors(get()) }
         addFactory { DeleteLibraryUpdateErrors(get()) }
         addFactory { InsertLibraryUpdateErrors(get()) }
+
+        addFactory { RefreshExtensionStores(get(), get()) }
     }
 }

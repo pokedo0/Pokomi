@@ -9,14 +9,18 @@ import eu.kanade.tachiyomi.source.PagePreviewPage
 import eu.kanade.tachiyomi.source.PagePreviewSource
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.source.online.HttpSource
 import exh.source.DelegatedHttpSource
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import logcat.LogPriority
 import okhttp3.CacheControl
+import okhttp3.Request
 import okhttp3.Response
+import tachiyomi.core.common.util.system.logcat
 
 class Hitomi(delegate: HttpSource, val context: Context) :
     DelegatedHttpSource(delegate),
@@ -27,15 +31,28 @@ class Hitomi(delegate: HttpSource, val context: Context) :
     private val cdnDomain = "gold-usergeneratedcontent.net"
     private val ltnUrl = "https://ltn.$cdnDomain"
 
+    override suspend fun getMangaUpdate(
+        manga: SManga,
+        chapters: List<SChapter>,
+        fetchDetails: Boolean,
+        fetchChapters: Boolean,
+    ): SMangaUpdate {
+        ensureDelegateCompatible()
+        return delegate.getMangaUpdate(manga, chapters, fetchDetails, fetchChapters)
+    }
+
     override suspend fun getPagePreviewList(
         manga: SManga,
         chapters: List<SChapter>,
         page: Int,
     ): PagePreviewPage {
-        val gallery = client.newCall(mangaDetailsRequest(manga))
+        val request = galleryInfoRequest(manga)
+        logcat(LogPriority.DEBUG) { "Fetching Hitomi page previews from ${request.url}" }
+        val gallery = client.newCall(request)
             .awaitSuccess()
             .parseGallery()
 
+        logcat(LogPriority.DEBUG) { "Loaded ${gallery.files.size} Hitomi page previews for ${manga.url}" }
         return PagePreviewPage(
             page,
             gallery.files.mapIndexed { index, imageFile ->
@@ -47,6 +64,27 @@ class Hitomi(delegate: HttpSource, val context: Context) :
             false,
             1,
         )
+    }
+
+    private fun galleryInfoRequest(manga: SManga): Request {
+        val galleryId = extractGalleryId(manga.url)
+        return if (galleryId != null) {
+            GET("$ltnUrl/galleries/$galleryId.js", headers)
+        } else {
+            logcat(LogPriority.WARN) { "Failed to extract Hitomi gallery id from url=${manga.url}, falling back to delegate mangaDetailsRequest" }
+            mangaDetailsRequest(manga)
+        }
+    }
+
+    private fun extractGalleryId(url: String): String? {
+        return url
+            .substringBefore("?")
+            .substringBefore("#")
+            .trimEnd('/')
+            .substringAfterLast("/")
+            .substringAfterLast("-")
+            .substringBefore(".")
+            .takeIf { it.isNotEmpty() && it.all(Char::isDigit) }
     }
 
     override suspend fun fetchPreviewImage(page: PagePreviewInfo, cacheControl: CacheControl?): Response {

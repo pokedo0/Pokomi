@@ -355,6 +355,9 @@ data object LibraryTab : Tab {
                         getDisplayMode = { screenModel.getDisplayMode() },
                         getColumnsForOrientation = { screenModel.getColumnsForOrientation(it) },
                         getItemsForCategory = { state.getItemsForCategory(it) },
+                        // PKM -->
+                        getAuthorGroupNamespace = { state.getAuthorGroupNamespace(it) },
+                        // PKM <--
                     )
                 }
             }

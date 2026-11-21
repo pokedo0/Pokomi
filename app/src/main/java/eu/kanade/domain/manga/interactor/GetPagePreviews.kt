@@ -7,6 +7,8 @@ import eu.kanade.tachiyomi.data.cache.PagePreviewCache
 import eu.kanade.tachiyomi.source.PagePreviewSource
 import eu.kanade.tachiyomi.source.Source
 import exh.source.getMainSource
+import logcat.LogPriority
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.manga.model.Manga
 
@@ -36,6 +38,11 @@ class GetPagePreviews(
                 pagePreviews.pagePreviewPages,
             )
         } catch (e: Exception) {
+            // PKM -->
+            logcat(LogPriority.ERROR, e) {
+                "Failed to load page previews for mangaId=${manga.id}, url=${manga.url}, sourceId=${source.id}, page=$page"
+            }
+            // PKM <--
             Result.Error(e)
         }
     }

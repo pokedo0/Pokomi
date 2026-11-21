@@ -20,6 +20,7 @@ import eu.kanade.domain.manga.interactor.SmartSearchMerge
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.sync.SyncPreferences
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.components.SEARCH_DEBOUNCE_MILLIS
 import eu.kanade.presentation.library.components.LibraryToolbarTitle
 import eu.kanade.presentation.manga.DownloadAction
@@ -60,10 +61,13 @@ import exh.util.cancellable
 import exh.util.isLewd
 import exh.util.nullIfBlank
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Job
@@ -84,6 +88,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.runBlocking
+import logcat.LogPriority
 import mihon.core.common.utils.mutate
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
@@ -92,6 +97,7 @@ import tachiyomi.core.common.util.lang.compareToWithCollator
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
@@ -166,6 +172,9 @@ class LibraryScreenModel(
     private val smartSearchMerge: SmartSearchMerge = Injekt.get(),
     private val authorTagTranslator: AuthorTagTranslator = Injekt.get(),
     // KMK <--
+    // PKM -->
+    private val uiPreferences: UiPreferences = Injekt.get(),
+    // PKM <--
 ) : StateScreenModel<LibraryScreenModel.State>(State()) {
 
     // SY -->
@@ -272,7 +281,10 @@ class LibraryScreenModel(
                 ),
                 // KMK <--
             ) { (data, groupType, noActiveFilterOrSearch), (sort, showHiddenCategories, showEmptyCategoriesSearch), (authorGroupMode, authorTagDatabase), (filterCategory, includedCategories) ->
-                data.favorites
+                // PKM -->
+                val authorGroupNamespaces = mutableMapOf<Long, String>()
+                val groupedFavorites = data.favorites
+                    // PKM <--
                     .applyGrouping(
                         data.categories,
                         // KMK -->
@@ -284,6 +296,9 @@ class LibraryScreenModel(
                         showHiddenCategories,
                         authorGroupMode,
                         authorTagDatabase,
+                        // PKM -->
+                        authorGroupNamespaces,
+                        // PKM <--
                         // KMK <--
                     )
                     .applySort(
@@ -314,16 +329,43 @@ class LibraryScreenModel(
                         }
                     }
                 // KMK <--
+                // PKM -->
+                groupedFavorites to authorGroupNamespaces.toImmutableMap()
+                // PKM <--
             }
-                .collectLatest {
+                .collectLatest { (groupedFavorites, authorGroupNamespaces) ->
                     mutableState.update { state ->
                         state.copy(
                             isLoading = false,
-                            groupedFavorites = it,
+                            groupedFavorites = groupedFavorites,
+                            // PKM -->
+                            authorGroupNamespaces = authorGroupNamespaces,
+                            // PKM <--
                         )
                     }
                 }
         }
+
+        // PKM -->
+        combine(
+            state.map { it.groupType }.distinctUntilChanged(),
+            uiPreferences.translateAuthorNames().changes(),
+            ::Pair,
+        )
+            .onEach { (groupType, translateAuthorNames) ->
+                if (
+                    (groupType == LibraryGroup.BY_AUTHOR || translateAuthorNames) &&
+                    authorTagTranslator.database.value.entries.isEmpty()
+                ) {
+                    logcat(LogPriority.DEBUG) {
+                        "Triggering author translation update from LibraryScreenModel " +
+                            "(groupType=$groupType, translateAuthorNames=$translateAuthorNames)"
+                    }
+                    authorTagTranslator.launchUpdate()
+                }
+            }
+            .launchIn(screenModelScope)
+        // PKM <--
 
         combine(
             libraryPreferences.categoryTabs().changes(),
@@ -565,6 +607,9 @@ class LibraryScreenModel(
         showHiddenCategories: Boolean,
         authorGroupMode: LibraryAuthorGroupMode,
         authorTagDatabase: EhTagTranslationDatabase,
+        // PKM -->
+        authorGroupNamespaces: MutableMap<Long, String>,
+        // PKM <--
         // KMK <--
     ): Map<Category, List</* LibraryItem */ Long>> {
         // KMK -->
@@ -619,6 +664,7 @@ class LibraryScreenModel(
                     // PKM -->
                     authorGroupMode = authorGroupMode,
                     authorTagDatabase = authorTagDatabase,
+                    authorGroupNamespaces = authorGroupNamespaces,
                     // PKM <--
                 )
             }
@@ -1527,6 +1573,7 @@ class LibraryScreenModel(
         // PKM -->
         authorGroupMode: LibraryAuthorGroupMode,
         authorTagDatabase: EhTagTranslationDatabase,
+        authorGroupNamespaces: MutableMap<Long, String>,
         // PKM <--
     ): Map<Category, List</* LibraryItem */ Long>> {
         val context = preferences.context
@@ -1620,23 +1667,40 @@ class LibraryScreenModel(
             LibraryGroup.BY_AUTHOR -> {
                 val unknownAuthor = context.stringResource(MR.strings.unknown_author)
                 val groupCache = linkedMapOf<String, MutableList</* LibraryItem */ Long>>()
+                // PKM -->
+                val namespaceCache = hashMapOf<String, MutableSet<String>>()
                 forEach { item ->
-                    resolveLibraryAuthorGroupNames(
+                    resolveLibraryAuthorGroups(
                         author = item.libraryManga.manga.ogAuthor,
                         artist = item.libraryManga.manga.ogArtist,
                         unknownAuthor = unknownAuthor,
                         mode = authorGroupMode,
                         tagDatabase = authorTagDatabase,
-                    ).forEach { authorName ->
-                        groupCache.getOrPut(authorName) { mutableListOf() }.add(item.id)
+                    ).forEach { resolvedGroup ->
+                        groupCache.getOrPut(resolvedGroup.name) { mutableListOf() }.add(item.id)
+                        resolvedGroup.namespace?.let { namespace ->
+                            namespaceCache.getOrPut(resolvedGroup.name) { hashSetOf() }.add(namespace)
+                        }
                     }
                 }
+
+                logcat(LogPriority.DEBUG) {
+                    "Grouped library by author (mode=$authorGroupMode, groups=${groupCache.size}, " +
+                        "dbEntries=${authorTagDatabase.entries.size})"
+                }
+                // PKM <--
 
                 groupCache.keys
                     .sortedWith(String.CASE_INSENSITIVE_ORDER)
                     .mapIndexed { index, authorName ->
+                        // PKM -->
+                        val categoryId = authorName.hashCode().toLong()
+                        namespaceCache[authorName]?.singleOrNull()?.let { namespace ->
+                            authorGroupNamespaces[categoryId] = namespace
+                        }
+                        // PKM <--
                         Category(
-                            id = authorName.hashCode().toLong(),
+                            id = categoryId,
                             name = authorName,
                             order = index.toLong(),
                             flags = 0,
@@ -1777,6 +1841,9 @@ class LibraryScreenModel(
         val includedCategories: ImmutableSet<Long> = persistentSetOf(),
         val excludedCategories: ImmutableSet<Long> = persistentSetOf(),
         // KMK <--
+        // PKM -->
+        val authorGroupNamespaces: ImmutableMap<Long, String> = persistentMapOf(),
+        // PKM <--
     ) {
         /**
          * The grouped tabs which is displayed above the library screen.
@@ -1838,6 +1905,12 @@ class LibraryScreenModel(
         fun getItemCountForCategory(category: Category): Int? {
             return if (showMangaCount || !searchQuery.isNullOrEmpty()) groupedFavorites[category]?.size else null
         }
+
+        // PKM -->
+        fun getAuthorGroupNamespace(category: Category): String? {
+            return authorGroupNamespaces[category.id]
+        }
+        // PKM <--
 
         fun getToolbarTitle(
             defaultTitle: String,

@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import eu.kanade.core.preference.PreferenceMutableState
-import eu.kanade.presentation.following.rememberAuthorNameTranslator
+import eu.kanade.presentation.following.rememberNamespacedAuthorNameTranslator
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -37,6 +37,9 @@ internal fun LibraryAuthorSections(
     getDisplayMode: (Int) -> PreferenceMutableState<LibraryDisplayMode>,
     getColumnsForOrientation: (Boolean) -> PreferenceMutableState<Int>,
     getItemsForCategory: (Category) -> List<LibraryItem>,
+    // PKM -->
+    getAuthorGroupNamespace: (Category) -> String? = { null },
+    // PKM <--
     onClickManga: (Category, LibraryManga) -> Unit,
     onLongClickManga: (Category, LibraryManga) -> Unit,
     onClickContinueReading: ((LibraryManga) -> Unit)?,
@@ -81,6 +84,9 @@ internal fun LibraryAuthorSections(
                 searchQuery = searchQuery,
                 onGlobalSearchClicked = onGlobalSearchClicked,
                 getItemsForCategory = getItemsForCategory,
+                // PKM -->
+                getAuthorGroupNamespace = getAuthorGroupNamespace,
+                // PKM <--
                 onToggleCollapsed = toggleCollapsed,
                 onClickManga = onClickManga,
                 onLongClickManga = onLongClickManga,
@@ -102,6 +108,9 @@ internal fun LibraryAuthorSections(
                 searchQuery = searchQuery,
                 onGlobalSearchClicked = onGlobalSearchClicked,
                 getItemsForCategory = getItemsForCategory,
+                // PKM -->
+                getAuthorGroupNamespace = getAuthorGroupNamespace,
+                // PKM <--
                 onToggleCollapsed = toggleCollapsed,
                 onClickManga = onClickManga,
                 onLongClickManga = onLongClickManga,
@@ -120,12 +129,17 @@ private fun LibraryAuthorListSections(
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
     getItemsForCategory: (Category) -> List<LibraryItem>,
+    // PKM -->
+    getAuthorGroupNamespace: (Category) -> String?,
+    // PKM <--
     onToggleCollapsed: (Category) -> Unit,
     onClickManga: (Category, LibraryManga) -> Unit,
     onLongClickManga: (Category, LibraryManga) -> Unit,
     onClickContinueReading: ((LibraryManga) -> Unit)?,
 ) {
-    val translateAuthorName = rememberAuthorNameTranslator()
+    // PKM -->
+    val translateAuthorName = rememberNamespacedAuthorNameTranslator()
+    // PKM <--
     FastScrollLazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = contentPadding + PaddingValues(vertical = 8.dp),
@@ -146,7 +160,7 @@ private fun LibraryAuthorListSections(
                 contentType = "library_author_header",
             ) {
                 CollapsibleAuthorHeader(
-                    title = translateAuthorName(category.name),
+                    title = translateAuthorName(category.name, getAuthorGroupNamespace(category)),
                     expanded = expanded,
                     onClick = { onToggleCollapsed(category) },
                     modifier = Modifier.animateItem(),
@@ -205,12 +219,17 @@ private fun LibraryAuthorGridSections(
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
     getItemsForCategory: (Category) -> List<LibraryItem>,
+    // PKM -->
+    getAuthorGroupNamespace: (Category) -> String?,
+    // PKM <--
     onToggleCollapsed: (Category) -> Unit,
     onClickManga: (Category, LibraryManga) -> Unit,
     onLongClickManga: (Category, LibraryManga) -> Unit,
     onClickContinueReading: ((LibraryManga) -> Unit)?,
 ) {
-    val translateAuthorName = rememberAuthorNameTranslator()
+    // PKM -->
+    val translateAuthorName = rememberNamespacedAuthorNameTranslator()
+    // PKM <--
     LazyLibraryGrid(
         modifier = Modifier.fillMaxSize(),
         columns = columns,
@@ -226,7 +245,7 @@ private fun LibraryAuthorGridSections(
                 contentType = "library_author_header",
             ) {
                 CollapsibleAuthorHeader(
-                    title = translateAuthorName(category.name),
+                    title = translateAuthorName(category.name, getAuthorGroupNamespace(category)),
                     expanded = expanded,
                     onClick = { onToggleCollapsed(category) },
                     modifier = Modifier.animateItem(),

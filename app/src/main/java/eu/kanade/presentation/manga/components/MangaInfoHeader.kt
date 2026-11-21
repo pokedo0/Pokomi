@@ -55,6 +55,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableFloatState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -93,10 +94,12 @@ import com.mikepenz.markdown.model.markdownAnnotatorConfig
 import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.components.DropdownMenu
-import eu.kanade.presentation.following.rememberAuthorNameTranslator
+import eu.kanade.presentation.following.rememberNamespacedAuthorNameTranslator
 import eu.kanade.presentation.following.rememberTagTranslator
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.translation.AuthorTagTranslator
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.ui.library.resolveMangaAuthorFieldNamespace
 import eu.kanade.tachiyomi.ui.manga.AuthorFollowState
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import org.intellij.markdown.MarkdownElementTypes
@@ -875,14 +878,44 @@ private fun AuthorFollowRows(
     onSearch: (query: String, global: Boolean) -> Unit,
     onLongClick: (String) -> Unit,
 ) {
-    val translateAuthorName = rememberAuthorNameTranslator()
+    // PKM -->
+    val translateAuthorName = rememberNamespacedAuthorNameTranslator()
+    val authorTagTranslator = remember { Injekt.get<AuthorTagTranslator>() }
+    val tagDatabase by authorTagTranslator.database.collectAsState()
+    val unknownAuthor = stringResource(MR.strings.unknown_author)
+    // PKM <--
     val authorName = author?.trim()?.takeIf { it.isNotBlank() }
     val artistName = artist?.trim()?.takeIf { it.isNotBlank() }
+
+    // PKM -->
+    val authorNamespace = remember(authorName, author, artist, unknownAuthor, tagDatabase) {
+        authorName?.let {
+            resolveMangaAuthorFieldNamespace(
+                name = it,
+                author = author,
+                artist = artist,
+                unknownAuthor = unknownAuthor,
+                tagDatabase = tagDatabase,
+            )
+        }
+    }
+    val artistNamespace = remember(artistName, author, artist, unknownAuthor, tagDatabase) {
+        artistName?.let {
+            resolveMangaAuthorFieldNamespace(
+                name = it,
+                author = author,
+                artist = artist,
+                unknownAuthor = unknownAuthor,
+                tagDatabase = tagDatabase,
+            )
+        }
+    }
+    // PKM <--
 
     Column {
         AuthorFollowRow(
             icon = Icons.Filled.PersonOutline,
-            text = authorName?.let { translateAuthorName(it) } ?: stringResource(MR.strings.unknown_author),
+            text = authorName?.let { translateAuthorName(it, authorNamespace) } ?: unknownAuthor,
             followState = authorFollowStates.firstOrNull { it.name == authorName },
             onToggleAuthorFollow = onToggleAuthorFollow,
             textAlign = textAlign,
@@ -894,7 +927,7 @@ private fun AuthorFollowRows(
             ?.let { artist ->
                 AuthorFollowRow(
                     icon = Icons.Filled.Brush,
-                    text = translateAuthorName(artist),
+                    text = translateAuthorName(artist, artistNamespace),
                     followState = authorFollowStates.firstOrNull { it.name == artist },
                     onToggleAuthorFollow = onToggleAuthorFollow,
                     textAlign = textAlign,

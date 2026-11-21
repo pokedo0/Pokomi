@@ -51,6 +51,9 @@ fun LibraryContent(
     getDisplayMode: (Int) -> PreferenceMutableState<LibraryDisplayMode>,
     getColumnsForOrientation: (Boolean) -> PreferenceMutableState<Int>,
     getItemsForCategory: (Category) -> List<LibraryItem>,
+    // PKM -->
+    getAuthorGroupNamespace: (Category) -> String? = { null },
+    // PKM <--
 ) {
     Column(
         modifier = Modifier.padding(
@@ -116,6 +119,9 @@ fun LibraryContent(
                     getDisplayMode = getDisplayMode,
                     getColumnsForOrientation = getColumnsForOrientation,
                     getItemsForCategory = getItemsForCategory,
+                    // PKM -->
+                    getAuthorGroupNamespace = getAuthorGroupNamespace,
+                    // PKM <--
                     onClickManga = { category, manga ->
                         if (selection.isNotEmpty()) {
                             onToggleSelection(category, manga)

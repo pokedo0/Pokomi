@@ -27,10 +27,58 @@ fun rememberAuthorNameTranslator(): (String) -> String {
     val enabled by uiPreferences.translateAuthorNames().collectAsState()
     val translations by translator.translations.collectAsState()
 
+    // PKM -->
+    LaunchedEffect(enabled, translator) {
+        if (enabled) translator.launchUpdate()
+    }
+    // PKM <--
+
     return remember(enabled, translations) {
         { name -> if (enabled) translator.translate(name) else name }
     }
 }
+
+// PKM -->
+@Composable
+fun rememberNamespacedAuthorNameTranslator(): (String, String?) -> String {
+    val uiPreferences = remember { Injekt.get<UiPreferences>() }
+    val translator = remember { Injekt.get<AuthorTagTranslator>() }
+
+    val enabled by uiPreferences.translateAuthorNames().collectAsState()
+    val database by translator.database.collectAsState()
+
+    LaunchedEffect(enabled, translator) {
+        if (enabled) translator.launchUpdate()
+    }
+
+    return remember(enabled, database) {
+        { name, preferredNamespace ->
+            if (!enabled) {
+                name
+            } else {
+                translateAuthorNameWithNamespace(
+                    name = name,
+                    preferredNamespace = preferredNamespace,
+                    translateTag = translator::translateTag,
+                    translateFallback = translator::translate,
+                )
+            }
+        }
+    }
+}
+
+internal fun translateAuthorNameWithNamespace(
+    name: String,
+    preferredNamespace: String?,
+    translateTag: (String, String) -> String?,
+    translateFallback: (String) -> String,
+): String {
+    if (!preferredNamespace.isNullOrBlank()) {
+        translateTag(preferredNamespace, name)?.let { return it }
+    }
+    return translateFallback(name)
+}
+// PKM <--
 
 @Composable
 fun rememberAllNameTranslator(): (String) -> String {
@@ -39,6 +87,12 @@ fun rememberAllNameTranslator(): (String) -> String {
 
     val enabled by uiPreferences.translateAuthorNames().collectAsState()
     val database by translator.database.collectAsState()
+
+    // PKM -->
+    LaunchedEffect(enabled, translator) {
+        if (enabled) translator.launchUpdate()
+    }
+    // PKM <--
 
     return remember(enabled, database) {
         { name ->

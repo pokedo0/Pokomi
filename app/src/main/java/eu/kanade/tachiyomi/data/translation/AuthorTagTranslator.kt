@@ -67,6 +67,9 @@ class AuthorTagTranslator(
 
     /** Loads the cached database and refreshes it in the background (fire-and-forget). */
     fun launchUpdate() {
+        logcat(LogPriority.DEBUG) {
+            "launchUpdate requested (loadedEntries=${databaseFlow.value.entries.size})"
+        }
         scope.launch { update() }
     }
 
@@ -87,17 +90,26 @@ class AuthorTagTranslator(
                     }
             }
 
-            // Daily throttle: skip the network entirely if refreshed within the last day.
-            if (cacheLoaded && System.currentTimeMillis() - dataFile.lastModified() < UPDATE_INTERVAL_MS) {
+            // PKM -->
+            // Daily throttle: skip the network entirely if refreshed within the last day,
+            // whether loaded just now or already resident in memory.
+            val hasLoadedData = cacheLoaded || databaseFlow.value.entries.isNotEmpty()
+            if (hasLoadedData && dataFile.exists() && System.currentTimeMillis() - dataFile.lastModified() < UPDATE_INTERVAL_MS) {
+                logcat(LogPriority.DEBUG) {
+                    "Skipping remote author translation refresh (within daily throttle)"
+                }
                 return
             }
+            // PKM <--
 
             try {
+                logcat(LogPriority.DEBUG) { "Checking remote EhTagTranslation SHA" }
                 val remoteSha = fetch(SHA_URL).trim()
                 val localSha = shaFile.takeUnless { shouldForceRefresh }?.takeIf { it.exists() }?.readText()?.trim()
                 if (remoteSha.isNotEmpty() && remoteSha == localSha) {
                     // Up to date; touch the data file to reset the daily throttle.
                     dataFile.setLastModified(System.currentTimeMillis())
+                    logcat(LogPriority.DEBUG) { "EhTagTranslation database already up to date (sha=$localSha)" }
                     return
                 }
 

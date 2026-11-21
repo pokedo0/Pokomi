@@ -23,6 +23,37 @@ class AuthorNameTranslatorTest {
             "美智子（红蝶）"
     }
 
+    @Test
+    fun `namespaced author translator distinguishes ambiguous artist and group names`() {
+        val database = EhTagTranslationDatabase.parse(json, ambiguousAuthorDatabase)
+        val fallback: (String) -> String = { database.translateAuthorOrNamespacedTag(it) ?: it }
+
+        translateAuthorNameWithNamespace("Misaki", "artist", database::translateTag, fallback) shouldBe "御崎"
+        translateAuthorNameWithNamespace("Misaki", "group", database::translateTag, fallback) shouldBe "三崎"
+        translateAuthorNameWithNamespace("Akutenkou", "artist", database::translateTag, fallback) shouldBe "恶天候"
+        translateAuthorNameWithNamespace("Akutenkou", "group", database::translateTag, fallback) shouldBe "恶天候"
+    }
+
+    private val ambiguousAuthorDatabase = """
+        {
+          "data": [
+            {
+              "namespace": "artist",
+              "data": {
+                "akutenkou": { "name": "恶天候" },
+                "misaki": { "name": "御崎" }
+              }
+            },
+            {
+              "namespace": "group",
+              "data": {
+                "misaki": { "name": "三崎" }
+              }
+            }
+          ]
+        }
+    """.trimIndent()
+
     private val sampleDatabase = """
         {
           "data": [

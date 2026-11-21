@@ -166,18 +166,18 @@ Package roots: `eu.kanade.tachiyomi.*` (legacy UI), `tachiyomi.*` (domain/data),
 ## Extensions & sources
 
 - Catalog sources: installable APK extensions (not in this repo).
-- In-repo: delegated sources and metadata in `exh/` (E-Hentai, NHentai, MangaDex, `exh/recs/`).
+- In-repo: delegated sources and metadata in `exh/` and `eu.kanade.tachiyomi.source.online.all/` (E-Hentai, NHentai, MangaDex, Pokomi's `Hitomi`, `exh/recs/`).
 - `source-api`: `eu.kanade.tachiyomi.source.*` — **avoid breaking extension ABI**.
 
 ---
 
-## Adding a Komikku feature
+## Adding a Pokomi feature
 
 1. **Interactor:** `domain/src/main/java/tachiyomi/domain/<area>/interactor/MyFeature.kt`
-2. **DI:** `addFactory { MyFeature(get()) }` in `KMKDomainModule.kt` (or inside a `// KMK` block in `DomainModule.kt`)
+2. **DI:** `addFactory { MyFeature(get()) }` in `KMKDomainModule.kt` (or inside a `// PKM` block in `DomainModule.kt`)
 3. **UI:** ScreenModel + Screen under `app/src/main/java/eu/kanade/tachiyomi/ui/`
-4. **Strings:** `i18n-kmk/src/commonMain/moko-resources/base/strings.xml`, referenced via `KMR`
-5. **Markers:** wrap edits to existing files in `// KMK -->` / `// KMK <--`
+4. **Strings:** `i18n-pkm/src/commonMain/moko-resources/base/strings.xml` (plus `zh-rCN/` and `zh-rTW/` for user-facing strings), referenced via `PKMR`
+5. **Markers:** wrap edits to existing files in `// PKM -->` / `// PKM <--`
 
 Reference: `domain/src/main/java/tachiyomi/domain/category/interactor/HideCategory.kt` and its registration in `DomainModule.kt`.
 

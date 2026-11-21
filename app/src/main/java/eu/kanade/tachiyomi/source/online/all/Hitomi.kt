@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import exh.source.DelegatedHttpSource
 import logcat.LogPriority
 import okhttp3.CacheControl
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Response
 import tachiyomi.core.common.util.system.logcat
@@ -23,6 +24,23 @@ class Hitomi(delegate: HttpSource, val context: Context) :
     PagePreviewSource {
 
     override val lang = delegate.lang
+
+    private val previewClient by lazy {
+        client.newBuilder()
+            .addInterceptor { chain ->
+                val request = chain.request()
+                val rewrittenUrl = rewriteBigThumbnailUrlToSmall(request.url)
+                if (rewrittenUrl != null) {
+                    logcat(LogPriority.DEBUG) {
+                        "Rewriting Hitomi preview URL ${request.url} -> $rewrittenUrl"
+                    }
+                    chain.proceed(request.newBuilder().url(rewrittenUrl).build())
+                } else {
+                    chain.proceed(request)
+                }
+            }
+            .build()
+    }
 
     override suspend fun getMangaUpdate(
         manga: SManga,
@@ -71,7 +89,7 @@ class Hitomi(delegate: HttpSource, val context: Context) :
     }
 
     override suspend fun fetchPreviewImage(page: PagePreviewInfo, cacheControl: CacheControl?): Response {
-        return client.newCachelessCallWithProgress(
+        return previewClient.newCachelessCallWithProgress(
             if (cacheControl != null) {
                 GET(page.imageUrl, headers, cacheControl)
             } else {
@@ -95,6 +113,18 @@ class Hitomi(delegate: HttpSource, val context: Context) :
                 .setQueryParameter(IMAGE_THUMBNAIL_PARAM, "true")
                 .build()
                 .toString()
+        }
+
+        internal fun rewriteBigThumbnailUrlToSmall(url: HttpUrl): HttpUrl? {
+            val firstSegment = url.pathSegments.firstOrNull() ?: return null
+            val replacement = when (firstSegment) {
+                "avifbigtn" -> "avifsmalltn"
+                "webpbigtn" -> "webpsmalltn"
+                else -> return null
+            }
+            return url.newBuilder()
+                .setPathSegment(0, replacement)
+                .build()
         }
     }
 }

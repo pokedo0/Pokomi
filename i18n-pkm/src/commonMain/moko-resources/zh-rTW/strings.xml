@@ -40,4 +40,6 @@
     <string name="library_author_group_artist">畫師</string>
     <string name="library_author_group_group">社團</string>
     <string name="library_author_group_artist_or_group">畫師 + 社團</string>
+    <string name="pref_previews_column_count">預覽欄數</string>
+    <string name="pref_previews_column_count_auto">自動</string>
 </resources>

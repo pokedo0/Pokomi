@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.source.online.all
 
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -36,5 +37,38 @@ class HitomiTest {
     fun `blank or null url returns null`() {
         assertNull(Hitomi.toHitomiPreviewUrl(null))
         assertNull(Hitomi.toHitomiPreviewUrl("   "))
+    }
+
+    @Test
+    fun `big thumbnail urls are rewritten to small thumbnail urls`() {
+        val avifResult = Hitomi.rewriteBigThumbnailUrlToSmall(
+            "https://btn.gold-usergeneratedcontent.net/avifbigtn/6/dd/fe941ccc.avif".toHttpUrl(),
+        )
+        val webpResult = Hitomi.rewriteBigThumbnailUrlToSmall(
+            "https://atn.gold-usergeneratedcontent.net/webpbigtn/a/c1/45325eb9.webp".toHttpUrl(),
+        )
+
+        assertEquals(
+            "https://btn.gold-usergeneratedcontent.net/avifsmalltn/6/dd/fe941ccc.avif",
+            avifResult?.toString(),
+        )
+        assertEquals(
+            "https://atn.gold-usergeneratedcontent.net/webpsmalltn/a/c1/45325eb9.webp",
+            webpResult?.toString(),
+        )
+    }
+
+    @Test
+    fun `already small or non thumbnail urls are not rewritten`() {
+        assertNull(
+            Hitomi.rewriteBigThumbnailUrlToSmall(
+                "https://btn.gold-usergeneratedcontent.net/avifsmalltn/6/dd/fe941ccc.avif".toHttpUrl(),
+            ),
+        )
+        assertNull(
+            Hitomi.rewriteBigThumbnailUrlToSmall(
+                "https://a1.gold-usergeneratedcontent.net/123/456/fe941ccc.avif".toHttpUrl(),
+            ),
+        )
     }
 }

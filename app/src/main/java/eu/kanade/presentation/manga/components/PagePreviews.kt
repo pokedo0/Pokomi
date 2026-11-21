@@ -7,11 +7,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
@@ -62,17 +63,34 @@ private fun PagePreviewLoading(
     }
 }
 
+// PKM -->
+internal fun resolvePagePreviewColumnCount(
+    maxWidth: Dp,
+    preferredColumns: Int,
+): Int {
+    if (preferredColumns > 0) {
+        return preferredColumns
+    }
+    return (maxWidth / 120.dp).floor().coerceAtLeast(1)
+}
+// PKM <--
+
 @Composable
 private fun PagePreviewRow(
     onOpenPage: (Int) -> Unit,
     items: ImmutableList<PagePreview>,
+    // PKM -->
+    columns: Int,
+    // PKM <--
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium),
+        // PKM -->
+        horizontalArrangement = Arrangement.spacedBy(if (columns >= 5) 8.dp else MaterialTheme.padding.medium),
+        // PKM <--
     ) {
         items.forEach { page ->
             PagePreview(
@@ -81,6 +99,11 @@ private fun PagePreviewRow(
                 onOpenPage = onOpenPage,
             )
         }
+        // PKM -->
+        repeat((columns - items.size).coerceAtLeast(0)) {
+            Spacer(modifier = Modifier.weight(1F))
+        }
+        // PKM <--
     }
 }
 
@@ -104,6 +127,9 @@ fun PagePreviews(
     onOpenPage: (Int) -> Unit,
     onMorePreviewsClicked: () -> Unit,
     rowCount: Int,
+    // PKM -->
+    columnCount: Int = 0,
+    // PKM <--
 ) {
     Column(Modifier.fillMaxWidth()) {
         var maxWidth by remember {
@@ -114,11 +140,16 @@ fun PagePreviews(
                 PagePreviewLoading(setMaxWidth = { maxWidth = it })
             }
             pagePreviewState is PagePreviewState.Success -> {
-                val itemPerRowCount = (maxWidth / 120.dp).floor()
+                // PKM -->
+                val itemPerRowCount = resolvePagePreviewColumnCount(maxWidth, columnCount)
+                // PKM <--
                 pagePreviewState.pagePreviews.take(rowCount * itemPerRowCount).chunked(itemPerRowCount).forEach {
                     PagePreviewRow(
                         onOpenPage = onOpenPage,
                         items = remember(it) { it.toImmutableList() },
+                        // PKM -->
+                        columns = itemPerRowCount,
+                        // PKM <--
                     )
                 }
 
@@ -136,6 +167,9 @@ fun LazyListScope.PagePreviewItems(
     maxWidth: Dp,
     setMaxWidth: (Dp) -> Unit,
     rowCount: Int,
+    // PKM -->
+    columnCount: Int = 0,
+    // PKM <--
 ) {
     when {
         pagePreviewState is PagePreviewState.Loading || maxWidth == Dp.Hairline -> {
@@ -147,7 +181,9 @@ fun LazyListScope.PagePreviewItems(
             }
         }
         pagePreviewState is PagePreviewState.Success -> {
-            val itemPerRowCount = (maxWidth / 120.dp).floor()
+            // PKM -->
+            val itemPerRowCount = resolvePagePreviewColumnCount(maxWidth, columnCount)
+            // PKM <--
             items(
                 key = { "${MangaScreenItem.CHAPTER_PREVIEW_ROW}-${it.hashCode()}" },
                 contentType = { MangaScreenItem.CHAPTER_PREVIEW_ROW },
@@ -156,6 +192,9 @@ fun LazyListScope.PagePreviewItems(
                 PagePreviewRow(
                     onOpenPage = onOpenPage,
                     items = remember(it) { it.toImmutableList() },
+                    // PKM -->
+                    columns = itemPerRowCount,
+                    // PKM <--
                 )
             }
             item(
@@ -208,9 +247,11 @@ fun PagePreview(
                     )
                 }
             },
+            // PKM -->
             modifier = Modifier
-                .height(200.dp)
-                .width(120.dp),
+                .fillMaxWidth()
+                .aspectRatio(120f / 200f),
+            // PKM <--
         )
         Text(page.index.toString())
     }

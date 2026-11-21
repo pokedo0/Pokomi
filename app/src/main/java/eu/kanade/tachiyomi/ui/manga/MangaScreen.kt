@@ -388,6 +388,9 @@ class MangaScreen(
             }.takeIf { successState.manga.favorite },
             // SY -->
             previewsRowCount = successState.previewsRowCount,
+            // PKM -->
+            previewsColumnCount = successState.previewsColumnCount,
+            // PKM <--
             onMetadataViewerClicked = {
                 openMetadataViewer(
                     navigator,

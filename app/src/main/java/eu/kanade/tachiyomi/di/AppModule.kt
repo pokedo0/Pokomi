@@ -1,12 +1,18 @@
 package eu.kanade.tachiyomi.di
 
 import android.app.Application
-import android.os.Build
 import androidx.core.content.ContextCompat
-import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteDriver
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.execSQL
 import app.cash.sqldelight.db.SqlDriver
-import app.cash.sqldelight.driver.android.AndroidSqliteDriver
+import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConfiguration
+import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConnectionFactory
+import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDatabaseType
+import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDriver
+import com.eygraber.sqldelight.androidx.driver.DefaultAndroidxSqliteConnectionFactory
+import com.eygraber.sqldelight.androidx.driver.FileProvider
 import eu.kanade.domain.track.store.DelayedTrackingStore
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.BackupRestoreStatus
@@ -30,11 +36,10 @@ import eu.kanade.tachiyomi.source.AndroidSourceManager
 import eu.kanade.tachiyomi.ui.following.FollowingLoadingStatus
 import eu.kanade.tachiyomi.util.system.isDebugBuildType
 import exh.eh.EHentaiUpdateHelper
-import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import mihon.core.archive.CbzCrypto
-import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
+import net.zetetic.database.sqlcipher.driver.SQLCipherDriver
 import nl.adaptivity.xmlutil.XmlDeclMode
 import nl.adaptivity.xmlutil.core.XmlVersion
 import nl.adaptivity.xmlutil.serialization.XML
@@ -61,58 +66,65 @@ import uy.kohesive.injekt.api.addSingleton
 import uy.kohesive.injekt.api.addSingletonFactory
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
+import java.lang.ref.WeakReference
 
-// SY -->
-private const val LEGACY_DATABASE_NAME = "tachiyomi.db"
-// SY <--
+private val lock = Any()
 
 class AppModule(val app: Application) : InjektModule {
     // SY -->
     private val securityPreferences: SecurityPreferences by injectLazy()
     // SY <--
 
+    private var sqlDriverRef: WeakReference<SqlDriver>? = null
+
     override fun InjektRegistrar.registerInjectables() {
         addSingleton(app)
 
         addSingletonFactory<SqlDriver> {
             // SY -->
-            if (securityPreferences.encryptDatabase().get()) {
+            val encryptDatabase = securityPreferences.encryptDatabase().get()
+            if (encryptDatabase) {
                 System.loadLibrary("sqlcipher")
             }
-
             // SY <--
-            AndroidSqliteDriver(
-                schema = Database.Schema,
-                context = app,
-                // SY -->
-                name = if (securityPreferences.encryptDatabase().get()) {
-                    CbzCrypto.DATABASE_NAME
-                } else {
-                    LEGACY_DATABASE_NAME
-                },
-                factory = if (securityPreferences.encryptDatabase().get()) {
-                    SupportOpenHelperFactory(CbzCrypto.getDecryptedPasswordSql(), null, false, 25)
-                } else if (isDebugBuildType && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    // Support database inspector in Android Studio
-                    FrameworkSQLiteOpenHelperFactory()
-                } else {
-                    RequerySQLiteOpenHelperFactory()
-                },
-                // SY <--
-                callback = object : AndroidSqliteDriver.Callback(Database.Schema) {
-                    override fun onOpen(db: SupportSQLiteDatabase) {
-                        super.onOpen(db)
-                        setPragma(db, "foreign_keys = ON")
-                        setPragma(db, "journal_mode = WAL")
-                        setPragma(db, "synchronous = NORMAL")
-                    }
-                    private fun setPragma(db: SupportSQLiteDatabase, pragma: String) {
-                        val cursor = db.query("PRAGMA $pragma")
-                        cursor.moveToFirst()
-                        cursor.close()
-                    }
-                },
-            )
+
+            synchronized(lock) {
+                sqlDriverRef?.get()?.let { return@synchronized it }
+
+                AndroidxSqliteDriver(
+                    // KMK -->
+                    connectionFactory = if (encryptDatabase) {
+                        // SQLCipher uses a single connection, so threads wait on it instead of hitting SQLITE_BUSY
+                        DefaultAndroidxSqliteConnectionFactory(
+                            SQLCipherDriver(CbzCrypto.getDecryptedPasswordSql(), null, null),
+                        )
+                    } else {
+                        object : AndroidxSqliteConnectionFactory {
+                            override val driver: SQLiteDriver = BundledSQLiteDriver()
+
+                            override fun createConnection(name: String): SQLiteConnection {
+                                return driver.open(name).apply {
+                                    execSQL("PRAGMA busy_timeout = 3000")
+                                }
+                            }
+                        }
+                    },
+                    databaseType = AndroidxSqliteDatabaseType.FileProvider(
+                        app,
+                        if (encryptDatabase) CbzCrypto.DATABASE_NAME else "tachiyomi.db",
+                    ),
+                    // KMK <--
+                    schema = Database.Schema,
+                    configuration = AndroidxSqliteConfiguration(
+                        isForeignKeyConstraintsEnabled = true,
+                        // KMK -->
+                        // Prevent crash when using Database Inspector
+                        cacheSize = if (isDebugBuildType) 0 else 25,
+                        // KMK <--
+                    ),
+                )
+                    .also { sqlDriverRef = WeakReference(it) }
+            }
         }
         addSingletonFactory {
             Database(
@@ -158,7 +170,7 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory { ChapterCache(app, get(), get()) }
         addSingletonFactory { CoverCache(app) }
 
-        addSingletonFactory { NetworkHelper(app, get(), get()) }
+        addSingletonFactory { NetworkHelper(app, get()) }
         addSingletonFactory { JavaScriptEngine(app) }
 
         // KMK -->

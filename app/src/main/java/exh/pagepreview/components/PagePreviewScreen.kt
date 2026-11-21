@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateTo
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -31,10 +33,12 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.AroundLayout
 import eu.kanade.presentation.manga.components.PagePreview
+import eu.kanade.presentation.manga.components.resolvePagePreviewColumnCount
 import exh.pagepreview.PagePreviewState
-import exh.util.floor
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
+import logcat.LogPriority
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
@@ -50,6 +54,9 @@ import kotlin.math.roundToInt
 fun PagePreviewScreen(
     state: PagePreviewState,
     pageDialogOpen: Boolean,
+    // PKM -->
+    columnCount: Int = 0,
+    // PKM <--
     onPageSelected: (Int) -> Unit,
     onOpenPage: (Int) -> Unit,
     onOpenPageDialog: () -> Unit,
@@ -73,9 +80,16 @@ fun PagePreviewScreen(
             PagePreviewState.Loading -> LoadingScreen()
             is PagePreviewState.Success -> {
                 BoxWithConstraints(Modifier.fillMaxSize()) {
-                    val itemPerRowCount = remember(maxWidth) {
-                        (maxWidth / 120.dp).floor()
+                    // PKM -->
+                    val itemPerRowCount = remember(maxWidth, columnCount) {
+                        resolvePagePreviewColumnCount(maxWidth, columnCount)
                     }
+                    LaunchedEffect(itemPerRowCount, columnCount) {
+                        logcat(LogPriority.DEBUG) {
+                            "PagePreviewScreen resolved columns=$itemPerRowCount (preferred=$columnCount)"
+                        }
+                    }
+                    // PKM <--
                     val items = remember(state.pagePreviews, itemPerRowCount) {
                         state.pagePreviews.chunked(itemPerRowCount)
                     }
@@ -94,7 +108,9 @@ fun PagePreviewScreen(
                                     .fillMaxWidth()
                                     .padding(horizontal = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                // PKM -->
+                                horizontalArrangement = Arrangement.spacedBy(if (itemPerRowCount >= 5) 8.dp else 16.dp),
+                                // PKM <--
                             ) {
                                 it.forEach { page ->
                                     PagePreview(
@@ -103,6 +119,11 @@ fun PagePreviewScreen(
                                         onOpenPage = onOpenPage,
                                     )
                                 }
+                                // PKM -->
+                                repeat((itemPerRowCount - it.size).coerceAtLeast(0)) {
+                                    Spacer(modifier = Modifier.weight(1F))
+                                }
+                                // PKM <--
                             }
                         }
                     }

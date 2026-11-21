@@ -29,6 +29,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableMap
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.i18n.pkm.PKMR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
@@ -282,6 +283,9 @@ object SettingsAppearanceScreen : SearchableSettings {
     @Composable
     fun getForkGroup(uiPreferences: UiPreferences): Preference.PreferenceGroup {
         val previewsRowCount by uiPreferences.previewsRowCount().collectAsState()
+        // PKM -->
+        val previewsColumnCount by uiPreferences.previewsColumnCount().collectAsState()
+        // PKM <--
 
         return Preference.PreferenceGroup(
             stringResource(SYMR.strings.pref_category_fork),
@@ -322,6 +326,23 @@ object SettingsAppearanceScreen : SearchableSettings {
                     },
                     onValueChanged = { uiPreferences.previewsRowCount().set(it) },
                 ),
+                // PKM -->
+                Preference.PreferenceItem.SliderPreference(
+                    value = previewsColumnCount,
+                    valueRange = 0..10,
+                    title = stringResource(PKMR.strings.pref_previews_column_count),
+                    valueString = if (previewsColumnCount > 0) {
+                        pluralStringResource(
+                            PKMR.plurals.column_count,
+                            previewsColumnCount,
+                            previewsColumnCount,
+                        )
+                    } else {
+                        stringResource(PKMR.strings.pref_previews_column_count_auto)
+                    },
+                    onValueChanged = { uiPreferences.previewsColumnCount().set(it) },
+                ),
+                // PKM <--
             ),
         )
     }

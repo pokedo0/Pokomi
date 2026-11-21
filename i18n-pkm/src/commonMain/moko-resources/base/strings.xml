@@ -40,4 +40,6 @@
     <string name="library_author_group_artist">Artist</string>
     <string name="library_author_group_group">Group</string>
     <string name="library_author_group_artist_or_group">Artist + group</string>
+    <string name="pref_previews_column_count">Previews column count</string>
+    <string name="pref_previews_column_count_auto">Auto</string>
 </resources>

@@ -179,6 +179,9 @@ fun MangaScreen(
     onOpenPagePreview: (Int) -> Unit,
     onMorePreviewsClicked: () -> Unit,
     previewsRowCount: Int,
+    // PKM -->
+    previewsColumnCount: Int = 0,
+    // PKM <--
     // SY <--
 
     // For bottom action menu
@@ -256,6 +259,9 @@ fun MangaScreen(
             onOpenPagePreview = onOpenPagePreview,
             onMorePreviewsClicked = onMorePreviewsClicked,
             previewsRowCount = previewsRowCount,
+            // PKM -->
+            previewsColumnCount = previewsColumnCount,
+            // PKM <--
             // SY <--
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
@@ -319,6 +325,9 @@ fun MangaScreen(
             onOpenPagePreview = onOpenPagePreview,
             onMorePreviewsClicked = onMorePreviewsClicked,
             previewsRowCount = previewsRowCount,
+            // PKM -->
+            previewsColumnCount = previewsColumnCount,
+            // PKM <--
             // SY <--
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
@@ -392,6 +401,9 @@ private fun MangaScreenSmallImpl(
     onOpenPagePreview: (Int) -> Unit,
     onMorePreviewsClicked: () -> Unit,
     previewsRowCount: Int,
+    // PKM -->
+    previewsColumnCount: Int = 0,
+    // PKM <--
     // SY <--
 
     // For bottom action menu
@@ -454,13 +466,9 @@ private fun MangaScreenSmallImpl(
     val readButtonPosition = uiPreferences.readButtonPosition()
     // KMK <--
 
-    BackHandler(onBack = {
-        if (isAnySelected) {
-            onAllChapterSelected(false)
-        } else {
-            navigateUp()
-        }
-    })
+    BackHandler(enabled = isAnySelected) {
+        onAllChapterSelected(false)
+    }
 
     Scaffold(
         topBar = {
@@ -775,6 +783,9 @@ private fun MangaScreenSmallImpl(
                             maxWidth = maxWidth,
                             setMaxWidth = { maxWidth = it },
                             rowCount = previewsRowCount,
+                            // PKM -->
+                            columnCount = previewsColumnCount,
+                            // PKM <--
                         )
                     }
                     // SY <--
@@ -859,6 +870,9 @@ private fun MangaScreenLargeImpl(
     onOpenPagePreview: (Int) -> Unit,
     onMorePreviewsClicked: () -> Unit,
     previewsRowCount: Int,
+    // PKM -->
+    previewsColumnCount: Int = 0,
+    // PKM <--
     // SY <--
 
     // For bottom action menu
@@ -925,13 +939,9 @@ private fun MangaScreenLargeImpl(
 
     val chapterListState = rememberLazyListState()
 
-    BackHandler(onBack = {
-        if (isAnySelected) {
-            onAllChapterSelected(false)
-        } else {
-            navigateUp()
-        }
-    })
+    BackHandler(enabled = isAnySelected) {
+        onAllChapterSelected(false)
+    }
 
     Scaffold(
         topBar = {
@@ -1158,6 +1168,9 @@ private fun MangaScreenLargeImpl(
                                 onOpenPage = onOpenPagePreview,
                                 onMorePreviewsClicked = onMorePreviewsClicked,
                                 rowCount = previewsRowCount,
+                                // PKM -->
+                                columnCount = previewsColumnCount,
+                                // PKM <--
                             )
                         }
                         // SY <--

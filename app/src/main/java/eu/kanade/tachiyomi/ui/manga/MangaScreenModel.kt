@@ -98,6 +98,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -528,6 +529,9 @@ class MangaScreenModel(
                     alwaysShowReadingProgress =
                     readerPreferences.preserveReadingPosition().get() && manga.isEhBasedManga(),
                     previewsRowCount = uiPreferences.previewsRowCount().get(),
+                    // PKM -->
+                    previewsColumnCount = uiPreferences.previewsColumnCount().get(),
+                    // PKM <--
                     authorFollowStates = buildAuthorFollowStates(
                         sourceId = manga.source,
                         author = manga.author,
@@ -540,6 +544,14 @@ class MangaScreenModel(
 
             // Start observe tracking since it only needs mangaId
             observeTrackers()
+
+            // PKM -->
+            uiPreferences.previewsColumnCount().changes()
+                .onEach { columnCount ->
+                    updateSuccessState { it.copy(previewsColumnCount = columnCount) }
+                }
+                .launchIn(screenModelScope)
+            // PKM <--
 
             // Fetch info-chapters when needed
             if (screenModelScope.isActive) {
@@ -2067,6 +2079,9 @@ class MangaScreenModel(
             val pagePreviewsState: PagePreviewState,
             val alwaysShowReadingProgress: Boolean,
             val previewsRowCount: Int,
+            // PKM -->
+            val previewsColumnCount: Int = 0,
+            // PKM <--
             // SY <--
             // KMK -->
             /**

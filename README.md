@@ -9,6 +9,12 @@ A free and open source manga reader forked from **Komikku** (based on TachiyomiS
 
 > **Important: To keep Following's "Load all authors" running in the background, allow Pokomi to use high background battery usage in system settings.**
 
+## Extension Repositories
+
+You can add manga sources from third-party extension repositories (in app: **More → Settings → Browse → Extension repos**):
+
+- [Keiyoushi Extensions](https://github.com/keiyoushi/extensions)
+- [Yuzono Cursed Manga Extensions](https://github.com/yuzono/cursed-manga-extensions)
 
 ## Features
 

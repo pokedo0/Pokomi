@@ -19,6 +19,9 @@
 -keep,allowoptimization class com.squareup.zstd.** { public protected *; }
 
 # From extensions-lib
+# PKM -->
+-keep,allowoptimization class eu.kanade.tachiyomi.network.HttpException { public protected *; }
+# PKM <--
 -keep,allowoptimization class eu.kanade.tachiyomi.network.interceptor.RateLimitInterceptorKt { public protected *; }
 -keep,allowoptimization class eu.kanade.tachiyomi.network.interceptor.SpecificHostRateLimitInterceptorKt { public protected *; }
 -keep,allowoptimization class eu.kanade.tachiyomi.network.NetworkHelper { public protected *; }
